@@ -11,8 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "db:push": "supabase db push",
-    "db:types": "supabase gen types typescript --linked > src/types/database.ts"
+    "db:push": "supabase db push --remote",
+    "db:types": "supabase gen types typescript --remote > src/types/database.ts"
   },
   "repository": {
     "type": "git",
