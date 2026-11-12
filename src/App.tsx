@@ -2,7 +2,6 @@ import type { ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { LoginPage } from './features/auth/LoginPage'
-import { SignupPage } from './features/auth/SignupPage'
 import { LibraryPage } from './features/library/LibraryPage'
 import { SetDetailPage } from './features/library/SetDetailPage'
 import { MarksPage } from './features/marks/MarksPage'
@@ -29,7 +28,7 @@ export default function App() {
     <MockStoreProvider>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/signup" element={<Navigate to="/login" replace />} />
         <Route path="/auth/callback" element={<Navigate to="/" replace />} />
 
         <Route

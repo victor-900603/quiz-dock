@@ -30,15 +30,9 @@ export function LoginPage() {
       title="登入"
       description="示範模式：任意 Email 與 8 碼以上密碼即可登入。"
       footer={
-        <>
-          <Link to="/signup" className="font-medium text-accent hover:underline">
-            還沒有帳號？註冊
-          </Link>
-          <span className="mx-2 text-line">·</span>
-          <Link to="/" className="hover:text-accent">
-            回到題庫
-          </Link>
-        </>
+        <Link to="/" className="hover:text-accent">
+          回到題庫
+        </Link>
       }
     >
       {error && (
