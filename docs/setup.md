@@ -13,7 +13,7 @@
 
 1. 登入 Supabase Dashboard。
 2. 建立新專案，名稱使用 `quiz-dock`。
-3. Region 選擇東京 `ap-northeast-1`；若東京無法選用，再改新加坡 `ap-southeast-1`。
+3. Region 選擇新加坡 `ap-southeast-1`。
 4. 建立完成後，從 Project Settings → API 取得：
    - Project URL
    - anon public key
