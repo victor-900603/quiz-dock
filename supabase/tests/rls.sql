@@ -91,6 +91,25 @@ values (
 insert into public.question_marks (user_id, question_id)
 values (auth.uid(), '33333333-3333-3333-3333-333333333333');
 
+update public.attempts
+set selected = array['B'],
+    is_correct = false,
+    updated_at = now()
+where id = '66666666-6666-6666-6666-666666666666';
+
+do $$
+begin
+  if not exists (
+    select 1
+    from public.attempts
+    where id = '66666666-6666-6666-6666-666666666666'
+      and selected = array['B']
+      and is_correct = false
+  ) then
+    raise exception 'owner could not update own attempt';
+  end if;
+end $$;
+
 -- Tester session: public rows only, no owner-owned sessions, attempts, or marks.
 set local request.jwt.claims = '{"sub":"TESTER_UUID","role":"authenticated"}';
 
@@ -174,6 +193,23 @@ begin
     insert into public.question_marks (user_id, question_id)
     values (auth.uid(), '33333333-3333-3333-3333-333333333333');
     raise exception 'tester marked private question';
+  exception when insufficient_privilege then
+    null;
+  end;
+end $$;
+
+do $$
+declare
+  v_count integer;
+begin
+  begin
+    update public.attempts
+    set selected = array['C'], is_correct = false
+    where id = '66666666-6666-6666-6666-666666666666';
+    get diagnostics v_count = row_count;
+    if v_count <> 0 then
+      raise exception 'tester updated owner attempt';
+    end if;
   exception when insufficient_privilege then
     null;
   end;
