@@ -27,6 +27,7 @@
   },
   "homepage": "https://github.com/victor-900603/quiz-dock#readme",
   "dependencies": {
+    "@supabase/supabase-js": "^2.119.0",
     "@tanstack/react-query": "^5.107.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.70.0",
