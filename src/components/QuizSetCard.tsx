@@ -12,6 +12,7 @@ type QuizSetCardProps = {
 
 export function QuizSetCard({ set, markedCount }: QuizSetCardProps) {
   const active = set.activeSession
+  const hasProgress = Boolean(active && active.answered > 0)
   const practiceHref = active
     ? `/practice/${active.id}?setId=${set.id}&mode=${active.mode}&resume=1`
     : `/practice/demo-session?setId=${set.id}&mode=sequential`
@@ -59,13 +60,13 @@ export function QuizSetCard({ set, markedCount }: QuizSetCardProps) {
         </span>
         <span className="inline-flex items-center gap-1.5">
           <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
-          {active ? '進行中' : '未開始'}
+          {hasProgress ? '進行中' : '未開始'}
         </span>
       </div>
 
       <div className="mt-auto flex items-center gap-2 pt-5">
         <Link to={practiceHref} className={buttonStyles('primary', 'min-h-10 px-3')}>
-          {active ? '繼續練習' : '開始練習'}
+          {hasProgress ? '繼續練習' : '開始練習'}
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Link>
         <Link to={`/sets/${set.id}`} className={buttonStyles('secondary', 'min-h-10 px-3')}>

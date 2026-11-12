@@ -36,11 +36,12 @@ export function PracticePage() {
   const { sessionId = 'demo-session' } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const { sets, marks, toggleMark } = useMockStore()
+  const { sets, marks, toggleMark, savePractice, resetPractice } = useMockStore()
 
   const setId = searchParams.get('setId') ?? sets[0]?.id
   const mode = searchParams.get('mode') === 'random' ? 'random' : 'sequential'
   const resume = searchParams.get('resume') === '1'
+  const restart = searchParams.get('restart') === '1'
   const set = sets.find((item) => item.id === setId)
   const baseQuestions = useMemo(
     () => mockQuestionsBySet[setId ?? ''] ?? EMPTY_QUESTIONS,
@@ -60,12 +61,16 @@ export function PracticePage() {
   const [answers, setAnswers] = useState<Record<string, AnswerState>>(initialAnswers)
   const [showStatus, setShowStatus] = useState(true)
   const [navigatorOpen, setNavigatorOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editSelected, setEditSelected] = useState<string[]>([])
   const startedAt = useRef(Date.now())
+  const restartApplied = useRef(false)
+  const initKey = useRef('')
 
   const question = questions[index]
   const total = questions.length
   const currentAnswer = question ? answers[question.id] : undefined
-  const selected = currentAnswer?.selected ?? []
+  const selected = editing ? editSelected : currentAnswer?.selected ?? []
   const submitted = currentAnswer?.submitted ?? false
   const progress = useMemo(() => summarizeAnswers(questions, answers), [questions, answers])
   const remaining = total - progress.answered
@@ -88,16 +93,45 @@ export function PracticePage() {
   )
 
   useEffect(() => {
-    const nextAnswers = hydrateAnswers(resume ? set?.activeSession?.attempts ?? [] : [])
+    if (!restart || !set || restartApplied.current) return
+    restartApplied.current = true
+    resetPractice(set.id, mode)
+  }, [restart, set, mode, resetPractice])
+
+  useEffect(() => {
+    const key = `${sessionId}:${setId}:${mode}:${resume ? 'resume' : 'fresh'}:${restart ? 'restart' : 'normal'}`
+    if (initKey.current === key) return
+    initKey.current = key
+
+    const nextAnswers = hydrateAnswers(!restart && resume ? set?.activeSession?.attempts ?? [] : [])
     setAnswers(nextAnswers)
-    setIndex(findFirstUnanswered(questions, nextAnswers))
+    setIndex(restart ? 0 : findFirstUnanswered(questions, nextAnswers))
+    setEditing(false)
+    setEditSelected([])
     startedAt.current = Date.now()
-  }, [questions, resume, set, setId, mode])
+  }, [questions, resume, restart, sessionId, set, setId, mode])
+
+  useEffect(() => {
+    setEditing(false)
+    setEditSelected([])
+  }, [index, question?.id])
 
   function toggleOption(key: string) {
-    if (!question || submitted) return
+    if (!question || (submitted && !editing)) return
 
     setNavigatorOpen(false)
+
+    if (editing) {
+      setEditSelected((current) =>
+        isMultiAnswer(question.correctAnswers)
+          ? current.includes(key)
+            ? current.filter((item) => item !== key)
+            : [...current, key]
+          : [key],
+      )
+      return
+    }
+
     setAnswers((current) => {
       const existing = current[question.id]?.selected ?? []
       const nextSelected = isMultiAnswer(question.correctAnswers)
@@ -118,22 +152,55 @@ export function PracticePage() {
   }
 
   function handleSubmit() {
-    if (!question || submitted || selected.length === 0) return
+    if (!set || !question || selected.length === 0) return
+    if (!editing && submitted) return
 
     setNavigatorOpen(false)
     const correct = evaluateAnswer(selected, question.correctAnswers)
-    setAnswers((current) => ({
-      ...current,
+    const nextAnswers = {
+      ...answers,
       [question.id]: {
         selected,
         submitted: true,
         correct,
       },
-    }))
+    }
+    const nextProgress = summarizeAnswers(questions, nextAnswers)
+    const attempts = questions
+      .filter((item) => nextAnswers[item.id]?.submitted)
+      .map((item) => ({
+        questionId: item.id,
+        selected: nextAnswers[item.id].selected,
+        correct: nextAnswers[item.id].correct,
+      }))
+
+    setAnswers(nextAnswers)
+    savePractice(set.id, {
+      id: sessionId,
+      answered: nextProgress.answered,
+      correct: nextProgress.correct,
+      total,
+      mode,
+      attempts,
+    })
+    setEditing(false)
+    setEditSelected([])
+  }
+
+  function handleEdit() {
+    if (!question || !submitted) return
+    setEditSelected(selected)
+    setEditing(true)
+    setNavigatorOpen(false)
+  }
+
+  function handleCancelEdit() {
+    setEditing(false)
+    setEditSelected([])
   }
 
   function handleNext() {
-    if (!set || !submitted) return
+    if (!set || !submitted || editing) return
 
     setNavigatorOpen(false)
     const nextIndex = findNextUnanswered(questions, answers, index)
@@ -200,14 +267,19 @@ export function PracticePage() {
 
       if (event.key >= '1' && event.key <= '9') {
         const option = question?.options[Number(event.key) - 1]
-        if (option && !submitted) {
+        if (option && (!submitted || editing)) {
           event.preventDefault()
           toggleOption(option.key)
         }
       }
 
       if (event.key === 'Enter') {
-        if (submitted) {
+        if (editing) {
+          if (selected.length > 0) {
+            event.preventDefault()
+            handleSubmit()
+          }
+        } else if (submitted) {
           event.preventDefault()
           handleNext()
         } else if (selected.length > 0) {
@@ -302,11 +374,14 @@ export function PracticePage() {
         question={question}
         selected={selected}
         submitted={submitted}
+        editing={editing}
         marked={marks.some((mark) => mark.id === question.id)}
         isLast={remaining === 0}
         onToggleOption={toggleOption}
         onToggleMark={() => toggleMark(question.id)}
         onSubmit={handleSubmit}
+        onEdit={handleEdit}
+        onCancelEdit={handleCancelEdit}
         onNext={handleNext}
       />
 

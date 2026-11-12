@@ -19,6 +19,7 @@ import { StatCard } from '../../components/StatCard'
 import { TopicBars } from '../../components/TopicBars'
 import { formatPercentValue } from '../../lib/format'
 import { useMockStore } from '../../lib/mockStore'
+import type { PracticeMode } from '../../types/quiz'
 
 export function SetDetailPage() {
   const { setId } = useParams()
@@ -27,6 +28,9 @@ export function SetDetailPage() {
   const set = sets.find((item) => item.id === setId)
   const [renameOpen, setRenameOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [pendingAction, setPendingAction] = useState<
+    { type: 'mode'; mode: PracticeMode } | { type: 'restart' } | null
+  >(null)
   const [renameTitle, setRenameTitle] = useState(set?.title ?? '')
 
   if (!set) {
@@ -54,6 +58,32 @@ export function SetDetailPage() {
     setRenameOpen(true)
   }
 
+  function requestMode(mode: PracticeMode) {
+    if (!activeSession) {
+      navigate(`/practice/demo-session?setId=${set!.id}&mode=${mode}`)
+      return
+    }
+
+    if (activeSession.mode === mode) {
+      navigate(practiceHref)
+      return
+    }
+
+    setPendingAction({ type: 'mode', mode })
+  }
+
+  function requestRestart() {
+    setPendingAction({ type: 'restart' })
+  }
+
+  function handlePendingConfirm() {
+    if (!pendingAction) return
+
+    const mode = pendingAction.type === 'mode' ? pendingAction.mode : activeSession?.mode ?? 'sequential'
+    setPendingAction(null)
+    navigate(`/practice/demo-session?setId=${set!.id}&mode=${mode}&restart=1`)
+  }
+
   function handleRename() {
     const nextTitle = renameTitle.trim()
     if (!nextTitle) return
@@ -78,18 +108,33 @@ export function SetDetailPage() {
         actionsClassName="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:shrink-0 sm:flex-nowrap sm:items-center"
         actions={
           <>
-            <Link
-              to={practiceHref}
-              className={buttonStyles(
-                'primary',
-                'whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm',
-              )}
-            >
-              <Play className="h-4 w-4" aria-hidden="true" />
-              {activeSession ? '繼續練習' : '依序練習'}
-            </Link>
-            <Link
-              to={`/practice/demo-session?setId=${set.id}&mode=random`}
+            {activeSession ? (
+              <Link
+                to={practiceHref}
+                className={buttonStyles(
+                  'primary',
+                  'whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm',
+                )}
+              >
+                <Play className="h-4 w-4" aria-hidden="true" />
+                繼續練習
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={() => requestMode('sequential')}
+                className={buttonStyles(
+                  'primary',
+                  'whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm',
+                )}
+              >
+                <Play className="h-4 w-4" aria-hidden="true" />
+                依序練習
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => requestMode('random')}
               className={buttonStyles(
                 'secondary',
                 'whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm',
@@ -97,10 +142,11 @@ export function SetDetailPage() {
             >
               <Shuffle className="h-4 w-4" aria-hidden="true" />
               隨機練習
-            </Link>
+            </button>
             {activeSession && (
-              <Link
-                to={`/practice/demo-session?setId=${set.id}&mode=sequential`}
+              <button
+                type="button"
+                onClick={requestRestart}
                 className={buttonStyles(
                   'secondary',
                   'whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm',
@@ -108,7 +154,7 @@ export function SetDetailPage() {
               >
                 <ListOrdered className="h-4 w-4" aria-hidden="true" />
                 重新開始
-              </Link>
+              </button>
             )}
           </>
         }
@@ -135,14 +181,18 @@ export function SetDetailPage() {
         <Card className="mt-6 p-5 sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">進行中</p>
-              <h2 className="mt-1 font-serif text-xl text-ink">上次練到第 {activeSession.answered + 1} 題</h2>
+              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">練習狀態</p>
+              <h2 className="mt-1 font-serif text-xl text-ink">
+                {activeSession.answered > 0
+                  ? `上次練到第 ${activeSession.answered + 1} 題`
+                  : '尚未開始作答'}
+              </h2>
               <p className="mt-1 text-sm text-muted">
                 已答 {activeSession.answered} / {activeSession.total} 題
               </p>
             </div>
             <Link to={practiceHref} className={buttonStyles('primary')}>
-              繼續練習
+              {activeSession.answered > 0 ? '繼續練習' : '開始練習'}
             </Link>
           </div>
           <div className="mt-5">
@@ -196,6 +246,15 @@ export function SetDetailPage() {
           className="mt-2 w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-sm text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
         />
       </Modal>
+
+      <ConfirmDialog
+        open={pendingAction !== null}
+        title={pendingAction?.type === 'mode' ? '切換模式' : '重新開始'}
+        description="切換模式或重新開始會清除這個題庫目前的作答與統計，確定要繼續嗎？"
+        confirmLabel={pendingAction?.type === 'mode' ? '切換模式' : '重新開始'}
+        onCancel={() => setPendingAction(null)}
+        onConfirm={handlePendingConfirm}
+      />
 
       <ConfirmDialog
         open={deleteOpen}

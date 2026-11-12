@@ -12,11 +12,14 @@ type QuestionCardProps = {
   question: Question
   selected: string[]
   submitted: boolean
+  editing: boolean
   marked: boolean
   isLast: boolean
   onToggleOption: (key: string) => void
   onToggleMark: () => void
   onSubmit: () => void
+  onEdit: () => void
+  onCancelEdit: () => void
   onNext: () => void
 }
 
@@ -24,11 +27,14 @@ export function QuestionCard({
   question,
   selected,
   submitted,
+  editing,
   marked,
   isLast,
   onToggleOption,
   onToggleMark,
   onSubmit,
+  onEdit,
+  onCancelEdit,
   onNext,
 }: QuestionCardProps) {
   const multi = isMultiAnswer(question.correctAnswers)
@@ -38,7 +44,7 @@ export function QuestionCard({
     const isSelected = selected.includes(key)
     const isCorrect = question.correctAnswers.includes(key)
 
-    if (!submitted) return isSelected ? 'selected' : 'idle'
+    if (!submitted || editing) return isSelected ? 'selected' : 'idle'
     if (isCorrect) return isSelected ? 'correct' : 'missed'
     if (isSelected) return 'wrong'
     return 'idle'
@@ -70,14 +76,14 @@ export function QuestionCard({
             option={option}
             selected={selected.includes(option.key)}
             status={statusFor(option.key)}
-            disabled={submitted}
+            disabled={submitted && !editing}
             multi={multi}
             onClick={() => onToggleOption(option.key)}
           />
         ))}
       </div>
 
-      {submitted && (
+      {submitted && !editing && (
         <div aria-live="polite" className="mt-5">
           <p
             className={cn(
@@ -97,10 +103,24 @@ export function QuestionCard({
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end lg:justify-between">
         <p className="hidden text-xs text-muted lg:block">鍵盤 1-9 選擇，Enter 送出</p>
-        {submitted ? (
-          <Button onClick={onNext} className="sm:min-w-36">
-            {isLast ? '查看摘要' : '下一題'}
-          </Button>
+        {editing ? (
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button variant="secondary" onClick={onCancelEdit}>
+              取消修改
+            </Button>
+            <Button onClick={onSubmit} disabled={selected.length === 0} className="sm:min-w-36">
+              更新答案
+            </Button>
+          </div>
+        ) : submitted ? (
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button variant="secondary" onClick={onEdit}>
+              修改答案
+            </Button>
+            <Button onClick={onNext} className="sm:min-w-36">
+              {isLast ? '查看摘要' : '下一題'}
+            </Button>
+          </div>
         ) : (
           <Button onClick={onSubmit} disabled={selected.length === 0} className="sm:min-w-36">
             確認答案

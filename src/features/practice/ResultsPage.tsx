@@ -1,8 +1,10 @@
-import { BarChart3, RotateCcw } from 'lucide-react'
-import { Link, useLocation, useParams } from 'react-router-dom'
+import { useState } from 'react'
+import { BarChart3, Pencil, RotateCcw } from 'lucide-react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AccuracySummary } from '../../components/AccuracySummary'
 import { buttonStyles } from '../../components/Button'
 import { Card } from '../../components/Card'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { PageHeader } from '../../components/PageHeader'
 import { StatCard } from '../../components/StatCard'
 import { TopicBars } from '../../components/TopicBars'
@@ -13,6 +15,8 @@ import type { SessionSummary } from '../../types/quiz'
 export function ResultsPage() {
   const { sessionId = 'demo-session' } = useParams()
   const location = useLocation()
+  const navigate = useNavigate()
+  const [restartOpen, setRestartOpen] = useState(false)
   const summary = (location.state as SessionSummary | null) ?? mockSummary
 
   return (
@@ -40,12 +44,20 @@ export function ResultsPage() {
 
       <div className="mt-6 flex flex-wrap gap-2">
         <Link
-          to={`/practice/${sessionId}?setId=${summary.setId}&mode=${summary.mode}`}
+          to={`/practice/${sessionId}?setId=${summary.setId}&mode=${summary.mode}&resume=1`}
           className={buttonStyles('primary')}
         >
-          <RotateCcw className="h-4 w-4" aria-hidden="true" />
-          再練一次
+          <Pencil className="h-4 w-4" aria-hidden="true" />
+          返回修改
         </Link>
+        <button
+          type="button"
+          onClick={() => setRestartOpen(true)}
+          className={buttonStyles('secondary')}
+        >
+          <RotateCcw className="h-4 w-4" aria-hidden="true" />
+          重新開始
+        </button>
         <Link to={`/sets/${summary.setId}`} className={buttonStyles('secondary')}>
           回題庫
         </Link>
@@ -54,6 +66,18 @@ export function ResultsPage() {
           查看統計
         </Link>
       </div>
+
+      <ConfirmDialog
+        open={restartOpen}
+        title="重新開始"
+        description="重新開始會清除這個題庫的作答與統計，確定要繼續嗎？"
+        confirmLabel="重新開始"
+        onCancel={() => setRestartOpen(false)}
+        onConfirm={() => {
+          setRestartOpen(false)
+          navigate(`/practice/${sessionId}?setId=${summary.setId}&mode=${summary.mode}&restart=1`)
+        }}
+      />
     </>
   )
 }
