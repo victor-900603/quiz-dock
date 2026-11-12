@@ -49,6 +49,7 @@ export type Database = {
           selected: string[]
           session_id: string
           set_id: string
+          updated_at: string
           user_id: string
         }
         Insert: {
@@ -60,6 +61,7 @@ export type Database = {
           selected?: string[]
           session_id: string
           set_id: string
+          updated_at?: string
           user_id: string
         }
         Update: {
@@ -71,6 +73,7 @@ export type Database = {
           selected?: string[]
           session_id?: string
           set_id?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
@@ -415,11 +418,14 @@ export type Database = {
         }
         Returns: {
           already_answered: boolean
+          answered_count: number
           correct_answers: string[]
+          correct_count: number
           current_index: number
           explanation: string
           is_correct: boolean
           session_status: string
+          was_updated: boolean
         }[]
       }
     }
