@@ -30,12 +30,15 @@ function renderCard(overrides: Partial<Parameters<typeof QuestionCard>[0]> = {})
     question: singleQuestion,
     selected: [],
     submitted: false,
+    editing: false,
     marked: false,
     isLast: false,
     onToggleOption: vi.fn(),
     onToggleMark: vi.fn(),
     onSubmit: vi.fn(),
     onNext: vi.fn(),
+    onEdit: vi.fn(),
+    onCancelEdit: vi.fn(),
     ...overrides,
   }
 
@@ -62,6 +65,28 @@ describe('QuestionCard', () => {
     expect(screen.getByText('答對了')).toBeInTheDocument()
     expect(screen.getByText('細胞膜具有選擇透性。')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '下一題' })).toBeInTheDocument()
+  })
+
+  it('enters edit mode from submitted feedback', async () => {
+    const user = userEvent.setup()
+    const { props } = renderCard({ selected: ['B'], submitted: true })
+
+    await user.click(screen.getByRole('button', { name: '修改答案' }))
+    expect(props.onEdit).toHaveBeenCalledTimes(1)
+  })
+
+  it('allows changing the selected option while editing', async () => {
+    const user = userEvent.setup()
+    const { props } = renderCard({ selected: ['B'], submitted: true, editing: true })
+
+    expect(screen.queryByText('答對了')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '更新答案' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: /A.*細胞核/ }))
+    expect(props.onToggleOption).toHaveBeenCalledWith('A')
+
+    await user.click(screen.getByRole('button', { name: '取消修改' }))
+    expect(props.onCancelEdit).toHaveBeenCalledTimes(1)
   })
 
   it('shows wrong feedback and the last-question action', async () => {

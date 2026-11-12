@@ -236,11 +236,11 @@ describe('App', () => {
 
     expect(await screen.findByRole('heading', { name: '生物學基礎' })).toBeInTheDocument()
 
-    const randomLink = screen.getByRole('link', { name: '隨機練習' })
-    expect(randomLink).toHaveClass('whitespace-nowrap')
-    expect(randomLink.parentElement).toHaveClass('grid', 'grid-cols-3', 'sm:flex-nowrap')
+    const randomButton = screen.getByRole('button', { name: '隨機練習' })
+    expect(randomButton).toHaveClass('whitespace-nowrap')
+    expect(randomButton.parentElement).toHaveClass('grid', 'grid-cols-3', 'sm:flex-nowrap')
     expect(screen.getAllByRole('link', { name: '繼續練習' })).toHaveLength(2)
-    expect(screen.getByRole('link', { name: '重新開始' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '重新開始' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '重新命名' }))
     const renameDialog = await screen.findByRole('dialog', { name: '重新命名題庫' })
@@ -274,7 +274,60 @@ describe('App', () => {
     expect(screen.getByText('光合作用利用光能，將二氧化碳與水轉換成葡萄糖並釋放氧氣。')).toBeInTheDocument()
   })
 
-  it('validates login and signup forms', async () => {
+  it('allows changing an answer and updates the navigator status', async () => {
+    const user = userEvent.setup()
+    renderApp('/practice/demo-session?setId=biology&mode=sequential')
+
+    await user.click(await screen.findByRole('radio', { name: /^B/ }))
+    await user.click(screen.getByRole('button', { name: '確認答案' }))
+    expect(await screen.findByText('答對了')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '修改答案' }))
+    expect(screen.getByRole('button', { name: '更新答案' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '取消修改' })).toBeInTheDocument()
+    expect(screen.queryByText('答對了')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: /^A/ }))
+    await user.click(screen.getByRole('button', { name: '更新答案' }))
+    expect(await screen.findByText('答錯了')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /展開題號列表/ }))
+    expect(screen.getByRole('button', { name: '第 1 題，答錯' })).toBeInTheDocument()
+  })
+
+  it('restarts from the results page and clears progress', async () => {
+    const user = userEvent.setup()
+    renderApp('/results/demo-session')
+
+    expect(await screen.findByRole('heading', { name: '練習完成' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '重新開始' }))
+
+    const dialog = await screen.findByRole('dialog', { name: '重新開始' })
+    await user.click(within(dialog).getByRole('button', { name: '重新開始' }))
+
+    expect(await screen.findByText('第 1 / 20 題')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /展開題號列表/ })).toHaveAttribute(
+      'aria-label',
+      expect.stringContaining('已答 0 / 20'),
+    )
+  })
+
+  it('confirms mode switching from the detail page', async () => {
+    const user = userEvent.setup()
+    renderApp('/sets/biology')
+
+    await user.click(await screen.findByRole('button', { name: '隨機練習' }))
+    const dialog = await screen.findByRole('dialog', { name: '切換模式' })
+    await user.click(within(dialog).getByRole('button', { name: '切換模式' }))
+
+    expect((await screen.findAllByText('隨機模式')).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /展開題號列表/ })).toHaveAttribute(
+      'aria-label',
+      expect.stringContaining('已答 0 / 20'),
+    )
+  })
+
+  it('validates login and hides signup', async () => {
     const user = userEvent.setup()
     const { unmount } = renderApp('/login')
 
@@ -300,30 +353,8 @@ describe('App', () => {
     unmount()
     renderApp('/signup')
 
-    const signupEmail = await screen.findByLabelText('Email')
-    const signupPassword = screen.getByLabelText('密碼')
-    const confirmPassword = screen.getByLabelText('確認密碼')
-
-    await user.type(signupEmail, 'bad')
-    fireEvent.submit(signupEmail.closest('form')!)
-    expect(screen.getByRole('alert')).toHaveTextContent('請輸入有效的 Email')
-
-    await user.clear(signupEmail)
-    await user.type(signupEmail, 'new@example.com')
-    await user.type(signupPassword, 'short')
-    await user.click(screen.getByRole('button', { name: '建立帳號' }))
-    expect(screen.getByRole('alert')).toHaveTextContent('密碼至少 8 碼')
-
-    await user.clear(signupPassword)
-    await user.type(signupPassword, 'password123')
-    await user.type(confirmPassword, 'different')
-    await user.click(screen.getByRole('button', { name: '建立帳號' }))
-    expect(screen.getByRole('alert')).toHaveTextContent('兩次輸入的密碼不一致')
-
-    await user.clear(confirmPassword)
-    await user.type(confirmPassword, 'password123')
-    await user.click(screen.getByRole('button', { name: '建立帳號' }))
-    expect(await screen.findByRole('heading', { name: '我的題庫' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '登入' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /註冊/ })).not.toBeInTheDocument()
   })
 
   it('handles callback, missing resources, and unknown routes', async () => {
