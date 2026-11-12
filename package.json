@@ -1,0 +1,59 @@
+{
+  "name": "quiz-dock",
+  "version": "0.1.0",
+  "private": true,
+  "description": "個人題庫練習網站",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "db:types": "supabase gen types typescript --project-id <project-id> > src/types/database.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/victor-900603/quiz-dock.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/victor-900603/quiz-dock/issues"
+  },
+  "homepage": "https://github.com/victor-900603/quiz-dock#readme",
+  "dependencies": {
+    "@tanstack/react-query": "^5.107.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.70.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.5",
+    "tailwind-merge": "^3.7.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@tailwindcss/vite": "^4.3.5",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "@vitest/coverage-v8": "^5.1.0",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.14.0",
+    "jsdom": "^29.1.1",
+    "tailwindcss": "^4.3.5",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.1",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
+  }
+}

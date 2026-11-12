@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #f6f1e7;
+  --color-surface: #fffdf8;
+  --color-ink: #22201c;
+  --color-muted: #6b6459;
+  --color-line: #ded6c7;
+  --color-accent: #1f5e4a;
+  --color-accent-soft: #e4ede7;
+  --color-correct: #2f6b4f;
+  --color-correct-soft: #e6f0e9;
+  --color-wrong: #a23b32;
+  --color-wrong-soft: #f6e7e4;
+  --color-highlight: #d9a441;
+  --color-highlight-soft: #f7edd6;
+
+  --font-serif: "Noto Serif TC", "Songti TC", "Source Han Serif TC", Georgia, serif;
+  --font-sans: "Inter", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+
+  --shadow-card: 0 1px 0 rgba(34, 32, 28, 0.04);
+}
+
+@keyframes navigator-rise {
+  from {
+    opacity: 0;
+    transform: translateY(1.25rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-navigator-rise {
+  animation: navigator-rise 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: bottom center;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    letter-spacing: 0.01em;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: var(--color-highlight-soft);
+    color: var(--color-ink);
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
