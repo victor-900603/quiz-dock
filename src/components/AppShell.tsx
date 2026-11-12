@@ -1,7 +1,7 @@
 import { BarChart3, BookOpen, Library, Settings, Star, type LucideIcon } from 'lucide-react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { cn } from '../lib/cn'
-import { useMockStore } from '../lib/mockStore'
+import { useAuth } from '../features/auth/AuthContext'
 
 type NavItem = {
   to: string
@@ -24,7 +24,7 @@ function pageTitle(pathname: string): string {
 }
 
 function SideNav() {
-  const { user } = useMockStore()
+  const { user } = useAuth()
 
   return (
     <aside className="fixed inset-y-0 left-0 hidden w-60 flex-col border-r border-line bg-surface px-5 py-8 lg:flex">

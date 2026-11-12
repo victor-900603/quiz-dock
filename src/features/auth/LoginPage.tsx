@@ -1,18 +1,19 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Button } from '../../components/Button'
-import { useMockStore } from '../../lib/mockStore'
+import { useAuth } from './AuthContext'
 import { AuthLayout, authInputClass } from './AuthLayout'
 
 export function LoginPage() {
-  const { login } = useMockStore()
+  const { signIn } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const [email, setEmail] = useState('victor@example.com')
-  const [password, setPassword] = useState('password')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     if (!email.includes('@') || password.length < 8) {
@@ -20,7 +21,16 @@ export function LoginPage() {
       return
     }
 
-    login(email)
+    setError(null)
+    setSubmitting(true)
+    const message = await signIn(email.trim(), password)
+    setSubmitting(false)
+
+    if (message) {
+      setError(message)
+      return
+    }
+
     const next = searchParams.get('next')
     navigate(next?.startsWith('/') ? next : '/', { replace: true })
   }
@@ -28,7 +38,7 @@ export function LoginPage() {
   return (
     <AuthLayout
       title="登入"
-      description="示範模式：任意 Email 與 8 碼以上密碼即可登入。"
+      description="請使用已建立的帳號登入。"
       footer={
         <Link to="/" className="hover:text-accent">
           回到題庫
@@ -69,7 +79,7 @@ export function LoginPage() {
           />
           <p className="mt-1 text-xs text-muted">至少 8 碼</p>
         </div>
-        <Button type="submit" className="w-full">
+        <Button type="submit" className="w-full" loading={submitting}>
           登入
         </Button>
       </form>

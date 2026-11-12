@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '../../components/Button'
 import { Card } from '../../components/Card'
 import { PageHeader } from '../../components/PageHeader'
-import { useMockStore } from '../../lib/mockStore'
+import { useAuth } from '../auth/AuthContext'
 
 export function SettingsPage() {
-  const { user, logout } = useMockStore()
+  const { user, signOut } = useAuth()
   const navigate = useNavigate()
 
   return (
@@ -24,8 +24,8 @@ export function SettingsPage() {
         <Button
           variant="secondary"
           className="mt-5"
-          onClick={() => {
-            logout()
+          onClick={async () => {
+            await signOut()
             navigate('/login')
           }}
         >
@@ -38,7 +38,7 @@ export function SettingsPage() {
         <h2 className="font-serif text-xl text-ink">版本</h2>
         <p className="mt-2 text-sm text-muted">QuizDock 0.1.0・前端介面預覽</p>
         <p className="mt-2 text-xs leading-6 text-muted">
-          目前使用示範資料，Supabase 與匯入功能尚未接上。數字與題目僅供介面確認。
+          登入已接上 Supabase；題庫、練習與統計仍使用示範資料。
         </p>
       </Card>
     </>
