@@ -2,14 +2,17 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
-import App from './App'
+import { AppRoutes } from './AppRoutes'
 import { mockQuestionsBySet } from './data/mock'
+import { TestAuthProvider } from './test/TestAuthProvider'
 
 function renderApp(route = '/') {
   return render(
-    <MemoryRouter initialEntries={[route]}>
-      <App />
-    </MemoryRouter>,
+    <TestAuthProvider>
+      <MemoryRouter initialEntries={[route]}>
+        <AppRoutes />
+      </MemoryRouter>
+    </TestAuthProvider>,
   )
 }
 
@@ -35,8 +38,10 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: '登出' }))
     expect(await screen.findByRole('heading', { name: '登入' })).toBeInTheDocument()
 
+    await user.type(screen.getByLabelText('Email'), 'victor@example.com')
+    await user.type(screen.getByLabelText('密碼'), 'password')
     await user.click(screen.getByRole('button', { name: '登入' }))
-    expect(await screen.findByRole('heading', { name: '設定' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '我的題庫' })).toBeInTheDocument()
   })
 
   it('imports a pasted JSON set and shows the preview notice', async () => {
