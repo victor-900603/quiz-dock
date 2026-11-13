@@ -57,7 +57,7 @@ describe('App', () => {
 
     await user.click(screen.getAllByRole('link', { name: '統計' })[0])
     expect(await screen.findByRole('heading', { name: '學習統計' })).toBeInTheDocument()
-    expect(screen.getByText('372')).toBeInTheDocument()
+    expect(await screen.findByText('答對 2 題')).toBeInTheDocument()
 
     await user.click(screen.getAllByRole('link', { name: '設定' })[0])
     expect(await screen.findByRole('heading', { name: '設定' })).toBeInTheDocument()
@@ -70,6 +70,32 @@ describe('App', () => {
     await user.type(screen.getByLabelText('密碼'), 'password')
     await user.click(screen.getByRole('button', { name: '登入' }))
     expect(await screen.findByRole('heading', { name: '我的題庫' })).toBeInTheDocument()
+  })
+
+  it('shows statistics from the Supabase views', async () => {
+    renderApp('/stats')
+
+    expect(await screen.findByRole('heading', { name: '學習統計' })).toBeInTheDocument()
+    expect(await screen.findByText('答對 2 題')).toBeInTheDocument()
+    expect(await screen.findByText('2 / 2 題')).toBeInTheDocument()
+    expect(screen.getAllByText('生物學基礎').length).toBeGreaterThan(0)
+    expect(screen.getByText('細胞結構')).toBeInTheDocument()
+    expect(screen.getByText('遺傳學')).toBeInTheDocument()
+    expect(screen.getByText('最近 14 天活動')).toBeInTheDocument()
+    expect(screen.getByText(/進行中/)).toBeInTheDocument()
+  })
+
+  it('shows an empty statistics state without attempts', async () => {
+    const seed = createSeedTables()
+    seed.attempts = []
+    seed.practice_sessions = []
+    getSharedFakeSupabase().reset(seed)
+
+    renderApp('/stats')
+
+    expect(
+      await screen.findByText('完成第一場練習後，這裡會顯示統計。'),
+    ).toBeInTheDocument()
   })
 
   it('shows empty and error states for the library', async () => {
