@@ -159,6 +159,12 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
   const [sessionStatus, setSessionStatus] = useState(session.status)
   const [lastAnsweredIndex, setLastAnsweredIndex] = useState<number | null>(null)
   const questionStartedAt = useRef(Date.now())
+  const questionCardRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!navigatorOpen) return
+    questionCardRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  }, [navigatorOpen])
 
   const question = questions[index]
   const currentAnswer = question ? answers[question.id] : undefined
@@ -495,24 +501,26 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
         </div>
       </div>
 
-      <QuestionCard
-        question={question}
-        selected={selected}
-        submitted={submitted}
-        editing={editing}
-        marked={marked}
-        submitting={submitMutation.isPending}
-        correct={submitted ? currentAnswer?.correct : undefined}
-        correctAnswers={currentAnswer?.correctAnswers}
-        explanation={currentAnswer?.explanation}
-        isLast={remaining === 0}
-        onToggleOption={toggleOption}
-        onToggleMark={handleToggleMark}
-        onSubmit={() => void handleSubmit()}
-        onEdit={handleEdit}
-        onCancelEdit={handleCancelEdit}
-        onNext={handleNext}
-      />
+      <div ref={questionCardRef} className="scroll-mt-24 lg:scroll-mt-8">
+        <QuestionCard
+          question={question}
+          selected={selected}
+          submitted={submitted}
+          editing={editing}
+          marked={marked}
+          submitting={submitMutation.isPending}
+          correct={submitted ? currentAnswer?.correct : undefined}
+          correctAnswers={currentAnswer?.correctAnswers}
+          explanation={currentAnswer?.explanation}
+          isLast={remaining === 0}
+          onToggleOption={toggleOption}
+          onToggleMark={handleToggleMark}
+          onSubmit={() => void handleSubmit()}
+          onEdit={handleEdit}
+          onCancelEdit={handleCancelEdit}
+          onNext={handleNext}
+        />
+      </div>
 
       {submitError && (
         <p className="mt-4 text-sm text-wrong" role="alert">
