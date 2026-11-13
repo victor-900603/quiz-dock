@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, Star } from 'lucide-react'
+import { Check, ChevronDown, Star } from 'lucide-react'
 import { Button } from '../../components/Button'
 import { Card } from '../../components/Card'
 import { EmptyState } from '../../components/EmptyState'
@@ -176,20 +176,28 @@ export function MarksPage() {
                           <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
                             選項
                           </p>
-                          <ol className="mt-2 space-y-2">
+                          <ol className="mt-3 space-y-2">
                             {mark.options.map((option) => {
                               const isAnswer = mark.correctAnswers.includes(option.key)
 
                               return (
                                 <li
                                   key={option.key}
-                                  className="flex gap-2 text-sm leading-6"
+                                  className={cn(
+                                    'flex items-start gap-3 rounded-lg border px-3 py-2.5 text-sm leading-6',
+                                    isAnswer
+                                      ? 'border-correct/40 bg-correct-soft'
+                                      : 'border-line bg-surface',
+                                  )}
                                 >
                                   <span
                                     className={cn(
-                                      'font-mono',
-                                      isAnswer ? 'font-semibold text-correct' : 'text-muted',
+                                      'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border font-mono text-xs font-semibold',
+                                      isAnswer
+                                        ? 'border-correct bg-correct text-white'
+                                        : 'border-line bg-paper text-muted',
                                     )}
+                                    aria-hidden="true"
                                   >
                                     {option.key}
                                   </span>
@@ -197,7 +205,8 @@ export function MarksPage() {
                                     {option.text}
                                   </span>
                                   {isAnswer && (
-                                    <span className="shrink-0 text-xs font-medium text-correct">
+                                    <span className="inline-flex shrink-0 items-center gap-1 pt-0.5 text-xs font-medium text-correct">
+                                      <Check className="h-3.5 w-3.5" aria-hidden="true" />
                                       正確答案
                                     </span>
                                   )}
