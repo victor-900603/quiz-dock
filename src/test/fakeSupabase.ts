@@ -11,6 +11,7 @@ export type FakeTableName =
   | 'questions'
   | 'practice_sessions'
   | 'attempts'
+  | 'question_marks'
 
 export type FakeRpcName = 'start_practice_session' | 'submit_answer'
 
@@ -51,6 +52,7 @@ function emptyTables(): FakeTables {
     questions: [],
     practice_sessions: [],
     attempts: [],
+    question_marks: [],
   }
 }
 
@@ -60,6 +62,7 @@ function cloneTables(tables: FakeTables): FakeTables {
     questions: tables.questions.map((row) => ({ ...row })),
     practice_sessions: tables.practice_sessions.map((row) => ({ ...row })),
     attempts: tables.attempts.map((row) => ({ ...row })),
+    question_marks: tables.question_marks.map((row) => ({ ...row })),
   }
 }
 
@@ -137,6 +140,7 @@ export class FakeQuery implements PromiseLike<FakeResult> {
   private table: FakeTableName
   private action: FakeAction = 'select'
   private filters: Array<[string, unknown]> = []
+  private inFilters: Array<[string, unknown[]]> = []
   private orders: Array<[string, boolean]> = []
   private limitCount: number | null = null
   private rangeStart: number | null = null
@@ -188,6 +192,11 @@ export class FakeQuery implements PromiseLike<FakeResult> {
     return this
   }
 
+  in(column: string, values: unknown[]): this {
+    this.inFilters.push([column, values])
+    return this
+  }
+
   order(column: string, options?: { ascending?: boolean }): this {
     this.orders.push([column, options?.ascending ?? true])
     return this
@@ -222,7 +231,10 @@ export class FakeQuery implements PromiseLike<FakeResult> {
   }
 
   private matches(row: FakeRow): boolean {
-    return this.filters.every(([column, value]) => row[column] === value)
+    return (
+      this.filters.every(([column, value]) => row[column] === value) &&
+      this.inFilters.every(([column, values]) => values.includes(row[column]))
+    )
   }
 
   private execute(): FakeResult {
@@ -283,6 +295,11 @@ export class FakeQuery implements PromiseLike<FakeResult> {
     )
 
     if (this.table === 'quiz_sets') {
+      const deletedQuestionIds = new Set(
+        this.owner.tables.questions
+          .filter((row) => deletedIds.has(String(row.set_id)))
+          .map((row) => String(row.id)),
+      )
       this.owner.tables.questions = this.owner.tables.questions.filter(
         (row) => !deletedIds.has(String(row.set_id)),
       )
@@ -292,10 +309,16 @@ export class FakeQuery implements PromiseLike<FakeResult> {
       this.owner.tables.attempts = this.owner.tables.attempts.filter(
         (row) => !deletedIds.has(String(row.set_id)),
       )
+      this.owner.tables.question_marks = this.owner.tables.question_marks.filter(
+        (row) => !deletedQuestionIds.has(String(row.question_id)),
+      )
     }
 
     if (this.table === 'questions') {
       this.owner.tables.attempts = this.owner.tables.attempts.filter(
+        (row) => !deletedIds.has(String(row.question_id)),
+      )
+      this.owner.tables.question_marks = this.owner.tables.question_marks.filter(
         (row) => !deletedIds.has(String(row.question_id)),
       )
     }
@@ -329,12 +352,15 @@ export class FakeQuery implements PromiseLike<FakeResult> {
         continue
       }
 
-      const inserted: FakeRow = {
-        id: typeof row.id === 'string' ? row.id : fakeId(),
-        created_at: now,
-        updated_at: now,
-        ...row,
-      }
+      const inserted: FakeRow =
+        this.table === 'question_marks'
+          ? { created_at: now, ...row }
+          : {
+              id: typeof row.id === 'string' ? row.id : fakeId(),
+              created_at: now,
+              updated_at: now,
+              ...row,
+            }
       table.push(inserted)
       written.push(inserted)
     }
@@ -361,6 +387,7 @@ export function createFakeSupabase(seed: Partial<FakeTables> = {}): FakeSupabase
     questions: 0,
     practice_sessions: 0,
     attempts: 0,
+    question_marks: 0,
   }
 
   function startPracticeSession(args: Record<string, unknown>): FakeResult {
@@ -570,6 +597,7 @@ export function createFakeSupabase(seed: Partial<FakeTables> = {}): FakeSupabase
         questions: 0,
         practice_sessions: 0,
         attempts: 0,
+        question_marks: 0,
       }
     },
     failNextInsert(table, error, after = 0) {
@@ -621,12 +649,17 @@ export function createSeedTables(): FakeTables {
   const tables = emptyTables()
 
   mockSets.forEach((set, setIndex) => {
+    const questions = mockQuestionsBySet[set.id] ?? []
+    const topicLabels = Object.fromEntries(
+      questions.map((question) => [question.topic, question.topic]),
+    )
+
     tables.quiz_sets.push({
       id: set.id,
       owner_id: TEST_OWNER_ID,
       title: set.title,
       description: set.description,
-      topic_labels: {},
+      topic_labels: topicLabels,
       is_public: false,
       source_filename: null,
       source_hash: null,
@@ -634,7 +667,6 @@ export function createSeedTables(): FakeTables {
       updated_at: `2026-11-${String(12 - setIndex).padStart(2, '0')}T00:00:00.000Z`,
     })
 
-    const questions = mockQuestionsBySet[set.id] ?? []
     questions.forEach((question, index) => {
       tables.questions.push({
         id: question.id,
@@ -652,6 +684,27 @@ export function createSeedTables(): FakeTables {
       })
     })
   })
+
+  const seedMarks: Array<[string, string]> = [
+    ['bio-1', '2026-11-13T09:35:00.000Z'],
+    ['history-2', '2026-11-13T08:50:00.000Z'],
+    ['bio-3', '2026-11-12T21:10:00.000Z'],
+    ['english-4', '2026-11-08T10:00:00.000Z'],
+    ['bio-5', '2026-11-07T10:00:00.000Z'],
+    ['history-9', '2026-11-06T10:00:00.000Z'],
+    ['english-17', '2026-11-05T10:00:00.000Z'],
+    ['history-18', '2026-11-03T10:00:00.000Z'],
+    ['cs-7', '2026-11-02T10:00:00.000Z'],
+    ['cs-14', '2026-10-31T10:00:00.000Z'],
+  ]
+
+  for (const [questionId, createdAt] of seedMarks) {
+    tables.question_marks.push({
+      user_id: TEST_OWNER_ID,
+      question_id: questionId,
+      created_at: createdAt,
+    })
+  }
 
   const biologyQuestions = mockQuestionsBySet.biology ?? []
   if (biologyQuestions.length > 0) {
