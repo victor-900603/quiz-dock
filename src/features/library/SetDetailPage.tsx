@@ -19,7 +19,6 @@ import { ProgressBar } from '../../components/ProgressBar'
 import { StatCard } from '../../components/StatCard'
 import { TopicCounts } from '../../components/TopicCounts'
 import { formatPercentValue } from '../../lib/format'
-import { useMockStore } from '../../lib/mockStore'
 import type { PracticeMode } from '../../types/quiz'
 import { useMarksQuery } from '../marks/queries'
 import { usePracticeSessionsQuery, useStartPracticeMutation } from '../practice/queries'
@@ -28,7 +27,6 @@ import { useDeleteSetMutation, useRenameSetMutation, useSetQuery } from './queri
 export function SetDetailPage() {
   const { setId } = useParams()
   const navigate = useNavigate()
-  const { renameSet, removeSet } = useMockStore()
   const marksQuery = useMarksQuery()
   const setQuery = useSetQuery(setId)
   const sessionsQuery = usePracticeSessionsQuery()
@@ -120,7 +118,6 @@ export function SetDetailPage() {
 
     try {
       await renameMutation.mutateAsync({ setId: set.id, title: nextTitle })
-      renameSet(set.id, nextTitle)
       setRenameOpen(false)
     } catch (error) {
       setRenameOpen(false)
@@ -137,7 +134,6 @@ export function SetDetailPage() {
 
     try {
       await deleteMutation.mutateAsync(set.id)
-      removeSet(set.id)
       navigate('/')
     } catch (error) {
       setDeleteOpen(false)

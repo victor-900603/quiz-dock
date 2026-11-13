@@ -17,7 +17,7 @@ export function AuthLayout({
   footer?: ReactNode
 }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-paper px-4 py-10">
+    <main className="flex min-h-screen items-center justify-center bg-paper px-4 py-10">
       <div className="w-full max-w-[420px]">
         <div className="mb-8 text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-line bg-surface text-accent">
@@ -35,6 +35,6 @@ export function AuthLayout({
 
         {footer && <div className="mt-4 text-center text-xs text-muted">{footer}</div>}
       </div>
-    </div>
+    </main>
   )
 }

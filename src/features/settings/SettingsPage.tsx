@@ -39,9 +39,9 @@ export function SettingsPage() {
 
       <Card className="mt-4 p-5 sm:p-6">
         <h2 className="font-serif text-xl text-ink">版本</h2>
-        <p className="mt-2 text-sm text-muted">QuizDock 0.1.0・前端介面預覽</p>
+        <p className="mt-2 text-sm text-muted">QuizDock 0.1.0</p>
         <p className="mt-2 text-xs leading-6 text-muted">
-          登入與題庫已接上 Supabase；練習、標記與統計仍使用示範資料。
+          登入、題庫、練習、標記與統計皆使用 Supabase。P0 不開放公開註冊。
         </p>
       </Card>
     </>

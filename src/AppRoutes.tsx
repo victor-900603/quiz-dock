@@ -11,7 +11,6 @@ import { PracticePage } from './features/practice/PracticePage'
 import { ResultsPage } from './features/practice/ResultsPage'
 import { SettingsPage } from './features/settings/SettingsPage'
 import { StatsPage } from './features/stats/StatsPage'
-import { MockStoreProvider } from './lib/mockStore'
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth()
@@ -34,30 +33,28 @@ function RequireAuth({ children }: { children: ReactNode }) {
 
 export function AppRoutes() {
   return (
-    <MockStoreProvider>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<Navigate to="/login" replace />} />
-        <Route path="/auth/callback" element={<Navigate to="/" replace />} />
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<Navigate to="/login" replace />} />
+      <Route path="/auth/callback" element={<Navigate to="/" replace />} />
 
-        <Route
-          element={
-            <RequireAuth>
-              <AppShell />
-            </RequireAuth>
-          }
-        >
-          <Route path="/" element={<LibraryPage />} />
-          <Route path="/sets/:setId" element={<SetDetailPage />} />
-          <Route path="/practice/:sessionId" element={<PracticePage />} />
-          <Route path="/results/:sessionId" element={<ResultsPage />} />
-          <Route path="/marks" element={<MarksPage />} />
-          <Route path="/stats" element={<StatsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Route>
+      <Route
+        element={
+          <RequireAuth>
+            <AppShell />
+          </RequireAuth>
+        }
+      >
+        <Route path="/" element={<LibraryPage />} />
+        <Route path="/sets/:setId" element={<SetDetailPage />} />
+        <Route path="/practice/:sessionId" element={<PracticePage />} />
+        <Route path="/results/:sessionId" element={<ResultsPage />} />
+        <Route path="/marks" element={<MarksPage />} />
+        <Route path="/stats" element={<StatsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+      </Route>
 
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </MockStoreProvider>
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
   )
 }
