@@ -41,4 +41,26 @@ describe('Modal', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(document.body.style.overflow).toBe('')
   })
+
+  it('keeps focus when the parent re-renders with a new onClose', () => {
+    const firstClose = vi.fn()
+    const secondClose = vi.fn()
+    const { rerender } = render(
+      <Modal open onClose={firstClose} title="測試視窗">
+        <input aria-label="測試輸入" />
+      </Modal>,
+    )
+
+    const input = screen.getByLabelText('測試輸入')
+    input.focus()
+    expect(input).toHaveFocus()
+
+    rerender(
+      <Modal open onClose={secondClose} title="測試視窗">
+        <input aria-label="測試輸入" />
+      </Modal>,
+    )
+
+    expect(input).toHaveFocus()
+  })
 })

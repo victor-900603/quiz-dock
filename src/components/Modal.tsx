@@ -15,12 +15,17 @@ type ModalProps = {
 export function Modal({ open, onClose, title, description, children, footer, className }: ModalProps) {
   const titleId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
+  const onCloseRef = useRef(onClose)
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
 
   useEffect(() => {
     if (!open) return
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') onCloseRef.current()
     }
 
     const previousOverflow = document.body.style.overflow
@@ -32,7 +37,7 @@ export function Modal({ open, onClose, title, description, children, footer, cla
       document.body.style.overflow = previousOverflow
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [onClose, open])
+  }, [open])
 
   if (!open) return null
 
