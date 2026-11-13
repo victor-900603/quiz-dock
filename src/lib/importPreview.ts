@@ -11,7 +11,7 @@ export type ImportPreviewResult = {
   error: string | null
 }
 
-export function parseImportPreview(text: string): ImportPreviewResult {
+export function parseImportPreview(text: string, fileName = ''): ImportPreviewResult {
   try {
     const data: unknown = JSON.parse(text)
     const isArray = Array.isArray(data)
@@ -35,14 +35,19 @@ export function parseImportPreview(text: string): ImportPreviewResult {
     for (const item of questions) {
       if (!item || typeof item !== 'object') continue
       const record = item as Record<string, unknown>
-      const topic = String(record.topic ?? '未分類')
+      const rawTopic = record.topic
+      const topic =
+        rawTopic == null || (typeof rawTopic === 'string' && rawTopic.trim() === '')
+          ? '未分類'
+          : String(rawTopic).trim()
       topicCounts.set(topic, (topicCounts.get(topic) ?? 0) + 1)
       if (sample.length < 3) {
         sample.push(String(record.question ?? '').slice(0, 90))
       }
     }
 
-    const title = isArray ? '未命名題庫' : String((data as { title?: unknown }).title ?? '未命名題庫')
+    const fileTitle = fileName.replace(/\.json$/i, '').trim() || '未命名題庫'
+    const title = isArray ? fileTitle : String((data as { title?: unknown }).title ?? fileTitle)
     const description = isArray ? '' : String((data as { description?: unknown }).description ?? '')
 
     return {

@@ -70,6 +70,22 @@ describe('parseImportPreview', () => {
     expect(result.preview?.topics).toEqual([{ name: '未分類', count: 1 }])
   })
 
+  it('treats blank topics as 未分類 and trims topic names', () => {
+    const result = parseImportPreview(
+      JSON.stringify([
+        { topic: '   ', question: '題目一' },
+        { topic: ' 細胞結構 ', question: '題目二' },
+        { topic: 3, question: '題目三' },
+      ]),
+    )
+
+    expect(result.preview?.topics).toEqual([
+      { name: '未分類', count: 1 },
+      { name: '細胞結構', count: 1 },
+      { name: '3', count: 1 },
+    ])
+  })
+
   it('truncates long sample prompts and uses fallback title', () => {
     const longPrompt = '題'.repeat(120)
     const result = parseImportPreview(JSON.stringify({ questions: [{ question: longPrompt }] }))

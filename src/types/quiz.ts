@@ -15,6 +15,7 @@ export type Question = {
 
 export type TopicStat = {
   name: string
+  total?: number
   answered: number
   correct: number
 }
