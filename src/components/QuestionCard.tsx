@@ -14,6 +14,11 @@ type QuestionCardProps = {
   submitted: boolean
   editing: boolean
   marked: boolean
+  showMark?: boolean
+  submitting?: boolean
+  correct?: boolean
+  correctAnswers?: string[]
+  explanation?: string
   isLast: boolean
   onToggleOption: (key: string) => void
   onToggleMark: () => void
@@ -29,6 +34,11 @@ export function QuestionCard({
   submitted,
   editing,
   marked,
+  showMark = true,
+  submitting = false,
+  correct,
+  correctAnswers,
+  explanation,
   isLast,
   onToggleOption,
   onToggleMark,
@@ -37,15 +47,16 @@ export function QuestionCard({
   onCancelEdit,
   onNext,
 }: QuestionCardProps) {
-  const multi = isMultiAnswer(question.correctAnswers)
-  const correct = evaluateAnswer(selected, question.correctAnswers)
+  const answers = correctAnswers ?? question.correctAnswers
+  const multi = isMultiAnswer(answers)
+  const isCorrect = correct ?? evaluateAnswer(selected, answers)
 
   function statusFor(key: string): OptionStatus {
     const isSelected = selected.includes(key)
-    const isCorrect = question.correctAnswers.includes(key)
+    const isAnswer = answers.includes(key)
 
     if (!submitted || editing) return isSelected ? 'selected' : 'idle'
-    if (isCorrect) return isSelected ? 'correct' : 'missed'
+    if (isAnswer) return isSelected ? 'correct' : 'missed'
     if (isSelected) return 'wrong'
     return 'idle'
   }
@@ -59,7 +70,7 @@ export function QuestionCard({
           </span>
           <span className="font-mono text-xs text-muted">#{String(question.number).padStart(3, '0')}</span>
         </div>
-        <MarkButton marked={marked} onToggle={onToggleMark} />
+        {showMark && <MarkButton marked={marked} onToggle={onToggleMark} />}
       </div>
 
       <h2 className="mt-5 font-serif text-xl leading-[1.7] text-ink sm:text-2xl">{question.prompt}</h2>
@@ -76,7 +87,7 @@ export function QuestionCard({
             option={option}
             selected={selected.includes(option.key)}
             status={statusFor(option.key)}
-            disabled={submitted && !editing}
+            disabled={submitting || (submitted && !editing)}
             multi={multi}
             onClick={() => onToggleOption(option.key)}
           />
@@ -88,15 +99,15 @@ export function QuestionCard({
           <p
             className={cn(
               'inline-flex items-center gap-2 text-sm font-medium',
-              correct ? 'text-correct' : 'text-wrong',
+              isCorrect ? 'text-correct' : 'text-wrong',
             )}
           >
-            {correct ? <Check className="h-4 w-4" aria-hidden="true" /> : <X className="h-4 w-4" aria-hidden="true" />}
-            {correct ? '答對了' : '答錯了'}
+            {isCorrect ? <Check className="h-4 w-4" aria-hidden="true" /> : <X className="h-4 w-4" aria-hidden="true" />}
+            {isCorrect ? '答對了' : '答錯了'}
           </p>
           <ExplanationPanel
-            correctAnswers={question.correctAnswers}
-            explanation={question.explanation}
+            correctAnswers={answers}
+            explanation={explanation ?? question.explanation}
           />
         </div>
       )}
@@ -105,10 +116,15 @@ export function QuestionCard({
         <p className="hidden text-xs text-muted lg:block">鍵盤 1-9 選擇，Enter 送出</p>
         {editing ? (
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button variant="secondary" onClick={onCancelEdit}>
+            <Button variant="secondary" onClick={onCancelEdit} disabled={submitting}>
               取消修改
             </Button>
-            <Button onClick={onSubmit} disabled={selected.length === 0} className="sm:min-w-36">
+            <Button
+              onClick={onSubmit}
+              disabled={selected.length === 0}
+              loading={submitting}
+              className="sm:min-w-36"
+            >
               更新答案
             </Button>
           </div>
@@ -122,7 +138,12 @@ export function QuestionCard({
             </Button>
           </div>
         ) : (
-          <Button onClick={onSubmit} disabled={selected.length === 0} className="sm:min-w-36">
+          <Button
+            onClick={onSubmit}
+            disabled={selected.length === 0}
+            loading={submitting}
+            className="sm:min-w-36"
+          >
             確認答案
           </Button>
         )}

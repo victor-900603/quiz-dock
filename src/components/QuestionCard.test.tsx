@@ -111,4 +111,27 @@ describe('QuestionCard', () => {
     await user.click(screen.getByRole('button', { name: '取消標記' }))
     expect(props.onToggleMark).toHaveBeenCalledTimes(1)
   })
+
+  it('hides the mark button when marking is disabled', () => {
+    renderCard({ showMark: false })
+
+    expect(
+      screen.queryByRole('button', { name: '標記題目' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('uses the server feedback and disables options while submitting', () => {
+    renderCard({
+      selected: ['A'],
+      submitted: true,
+      correct: true,
+      correctAnswers: ['A'],
+      explanation: '由伺服器回傳的解析。',
+      submitting: true,
+    })
+
+    expect(screen.getByText('答對了')).toBeInTheDocument()
+    expect(screen.getByText('由伺服器回傳的解析。')).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /A.*細胞核/ })).toBeDisabled()
+  })
 })

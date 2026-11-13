@@ -1,4 +1,4 @@
-import type { MarkedQuestion, Question, QuizSet, SessionSummary, TopicStat } from '../types/quiz'
+import type { MarkedQuestion, Question, QuizSet, TopicStat } from '../types/quiz'
 
 function question(
   id: string,
@@ -1116,17 +1116,6 @@ export const mockSets: QuizSet[] = [
       { name: '代謝', answered: 38, correct: 29 },
       { name: '生態', answered: 30, correct: 20 },
     ],
-    activeSession: {
-      id: 'session-biology',
-      answered: 2,
-      correct: 2,
-      total: mockQuestionsBySet.biology.length,
-      mode: 'sequential',
-      attempts: [
-        { questionId: 'bio-1', selected: ['B'], correct: true },
-        { questionId: 'bio-2', selected: ['B'], correct: true },
-      ],
-    },
   },
   {
     id: 'taiwan-history',
@@ -1307,17 +1296,3 @@ export const mockStats = {
   ],
 }
 
-export const mockSummary: SessionSummary = {
-  setId: 'biology',
-  setTitle: '生物學基礎',
-  mode: 'sequential',
-  answered: 15,
-  correct: 12,
-  durationSeconds: 742,
-  topics: [
-    { name: '細胞結構', answered: 4, correct: 4 },
-    { name: '遺傳學', answered: 4, correct: 3 },
-    { name: '代謝', answered: 4, correct: 3 },
-    { name: '生態', answered: 3, correct: 2 },
-  ],
-}

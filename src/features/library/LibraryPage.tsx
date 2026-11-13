@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ArrowRight, BookOpen, Upload } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { buttonStyles, Button } from '../../components/Button'
 import { Card } from '../../components/Card'
 import { EmptyState } from '../../components/EmptyState'
@@ -10,27 +10,50 @@ import { ProgressBar } from '../../components/ProgressBar'
 import { QuizSetCard } from '../../components/QuizSetCard'
 import { useMockStore } from '../../lib/mockStore'
 import type { ImportPayload } from '../../schemas/import'
+import { usePracticeSessionsQuery, useStartPracticeMutation } from '../practice/queries'
 import { useImportSetMutation, useSetsQuery } from './queries'
 
 export function LibraryPage() {
-  const { sets: mockSets, marks } = useMockStore()
+  const { marks } = useMockStore()
+  const navigate = useNavigate()
   const setsQuery = useSetsQuery()
+  const sessionsQuery = usePracticeSessionsQuery()
   const importMutation = useImportSetMutation()
+  const startMutation = useStartPracticeMutation()
   const [importOpen, setImportOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
-  const mockSetsById = new Map(mockSets.map((set) => [set.id, set]))
-  const sets = (setsQuery.data ?? []).map((set) => {
-    const activeSession = mockSetsById.get(set.id)?.activeSession
-    return activeSession ? { ...set, activeSession } : set
-  })
-
-  const activeSet = sets.find((set) => set.activeSession)
-  const activeSession = activeSet?.activeSession
+  const sets = setsQuery.data ?? []
+  const progressBySet = new Map(
+    (sessionsQuery.data ?? []).map((progress) => [progress.setId, progress]),
+  )
+  const activeProgress = (sessionsQuery.data ?? [])[0]
+  const activeSet = activeProgress
+    ? sets.find((set) => set.id === activeProgress.setId)
+    : undefined
+  const activeHref = activeProgress
+    ? activeProgress.status === 'completed'
+      ? `/results/${activeProgress.id}`
+      : `/practice/${activeProgress.id}?setId=${activeProgress.setId}&mode=${activeProgress.mode}`
+    : null
 
   async function handleImport(payload: ImportPayload) {
     const result = await importMutation.mutateAsync(payload)
     setNotice(`已匯入「${result.title}」。`)
+  }
+
+  async function handleStartPractice(setId: string) {
+    setActionError(null)
+
+    try {
+      const session = await startMutation.mutateAsync({ setId, mode: 'sequential' })
+      navigate(`/practice/${session.id}?setId=${setId}&mode=${session.mode}`)
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : '無法開始練習，請稍後再試。',
+      )
+    }
   }
 
   return (
@@ -56,28 +79,36 @@ export function LibraryPage() {
         </div>
       )}
 
-      {activeSet && activeSession && (
+      {actionError && (
+        <div
+          className="mb-6 rounded-lg border border-wrong/30 bg-wrong-soft px-4 py-3 text-sm text-wrong"
+          role="alert"
+        >
+          {actionError}
+        </div>
+      )}
+
+      {activeSet && activeProgress && activeHref && (
         <Card className="mb-6 overflow-hidden p-5 sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">進行中</p>
+              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">
+                {activeProgress.status === 'completed' ? '已完成' : '進行中'}
+              </p>
               <h2 className="mt-1 font-serif text-xl text-ink">{activeSet.title}</h2>
               <p className="mt-1 text-sm text-muted">
-                已答 {activeSession.answered} / {activeSession.total} 題
+                已答 {activeProgress.answered} / {activeProgress.total} 題
               </p>
             </div>
-            <Link
-              to={`/practice/${activeSession.id}?setId=${activeSet.id}&mode=${activeSession.mode}&resume=1`}
-              className={buttonStyles('primary')}
-            >
-              繼續練習
+            <Link to={activeHref} className={buttonStyles('primary')}>
+              {activeProgress.status === 'completed' ? '查看摘要' : '繼續練習'}
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
           <div className="mt-5">
             <ProgressBar
-              answered={activeSession.answered}
-              total={activeSession.total}
+              answered={activeProgress.answered}
+              total={activeProgress.total}
               label="目前進度"
             />
           </div>
@@ -121,6 +152,11 @@ export function LibraryPage() {
             <QuizSetCard
               key={set.id}
               set={set}
+              progress={progressBySet.get(set.id)}
+              practicePending={
+                startMutation.isPending && startMutation.variables?.setId === set.id
+              }
+              onPractice={() => void handleStartPractice(set.id)}
               markedCount={marks.filter((mark) => mark.setId === set.id).length}
             />
           ))}

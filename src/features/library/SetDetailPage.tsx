@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import {
   ArrowLeft,
+  BarChart3,
   ListOrdered,
   Pencil,
   Play,
@@ -19,7 +20,8 @@ import { StatCard } from '../../components/StatCard'
 import { TopicCounts } from '../../components/TopicCounts'
 import { formatPercentValue } from '../../lib/format'
 import { useMockStore } from '../../lib/mockStore'
-import type { ActiveSession, PracticeMode } from '../../types/quiz'
+import type { PracticeMode } from '../../types/quiz'
+import { usePracticeSessionsQuery, useStartPracticeMutation } from '../practice/queries'
 import { useDeleteSetMutation, useRenameSetMutation, useSetQuery } from './queries'
 
 export function SetDetailPage() {
@@ -27,6 +29,8 @@ export function SetDetailPage() {
   const navigate = useNavigate()
   const { marks, renameSet, removeSet } = useMockStore()
   const setQuery = useSetQuery(setId)
+  const sessionsQuery = usePracticeSessionsQuery()
+  const startMutation = useStartPracticeMutation()
   const renameMutation = useRenameSetMutation()
   const deleteMutation = useDeleteSetMutation()
   const [renameOpen, setRenameOpen] = useState(false)
@@ -36,12 +40,14 @@ export function SetDetailPage() {
   >(null)
   const [renameTitle, setRenameTitle] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
+  const [startIntent, setStartIntent] = useState<'mode' | 'restart' | null>(null)
 
   const set = setQuery.data?.set
-  const [activeSession] = useState<ActiveSession | undefined>(undefined)
-  const practiceHref = activeSession
-    ? `/practice/${activeSession.id}?setId=${set?.id}&mode=${activeSession.mode}&resume=1`
-    : `/practice/demo-session?setId=${set?.id}&mode=sequential`
+  const progress = (sessionsQuery.data ?? []).find((item) => item.setId === set?.id)
+  const practiceHref = progress
+    ? `/practice/${progress.id}?setId=${progress.setId}&mode=${progress.mode}`
+    : null
+  const summaryHref = progress ? `/results/${progress.id}` : null
 
   function openRename() {
     setRenameTitle(set?.title ?? '')
@@ -49,16 +55,38 @@ export function SetDetailPage() {
     setRenameOpen(true)
   }
 
-  function requestMode(mode: PracticeMode) {
+  async function startPractice(
+    mode: PracticeMode,
+    restart: boolean,
+    intent: 'mode' | 'restart',
+  ) {
     if (!set) return
 
-    if (!activeSession) {
-      navigate(`/practice/demo-session?setId=${set.id}&mode=${mode}`)
+    setActionError(null)
+    setStartIntent(intent)
+
+    try {
+      const session = await startMutation.mutateAsync({ setId: set.id, mode, restart })
+      navigate(`/practice/${session.id}?setId=${set.id}&mode=${session.mode}`)
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : '無法開始練習，請稍後再試。',
+      )
+    } finally {
+      setStartIntent(null)
+    }
+  }
+
+  function requestMode(mode: PracticeMode) {
+    if (!set || set.questionCount === 0) return
+
+    if (!progress) {
+      void startPractice(mode, false, 'mode')
       return
     }
 
-    if (activeSession.mode === mode) {
-      navigate(practiceHref)
+    if (progress.mode === mode) {
+      navigate(practiceHref as string)
       return
     }
 
@@ -66,7 +94,7 @@ export function SetDetailPage() {
   }
 
   function requestRestart() {
-    if (!activeSession) return
+    if (!progress) return
     setPendingAction({ type: 'restart' })
   }
 
@@ -74,9 +102,10 @@ export function SetDetailPage() {
     if (!pendingAction || !set) return
 
     const mode =
-      pendingAction.type === 'mode' ? pendingAction.mode : activeSession?.mode ?? 'sequential'
+      pendingAction.type === 'mode' ? pendingAction.mode : progress?.mode ?? 'sequential'
+    const intent = pendingAction.type === 'mode' ? 'mode' : 'restart'
     setPendingAction(null)
-    navigate(`/practice/demo-session?setId=${set.id}&mode=${mode}&restart=1`)
+    void startPractice(mode, true, intent)
   }
 
   async function handleRename() {
@@ -157,12 +186,13 @@ export function SetDetailPage() {
   }
 
   const markedCount = marks.filter((mark) => mark.setId === set.id).length
-  const answeredCount = activeSession?.answered ?? set.answeredCount
-  const accuracy = activeSession
-    ? activeSession.answered > 0
-      ? (activeSession.correct / activeSession.answered) * 100
-      : null
-    : set.accuracy
+  const answeredCount = progress?.answered ?? set.answeredCount
+  const accuracy =
+    progress && progress.answered > 0
+      ? (progress.correct / progress.answered) * 100
+      : set.accuracy
+  const pendingMode = startMutation.isPending ? startMutation.variables?.mode : undefined
+  const practiceDisabled = startMutation.isPending || set.questionCount === 0
 
   return (
     <>
@@ -181,65 +211,76 @@ export function SetDetailPage() {
         actionsClassName="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:shrink-0 sm:flex-nowrap sm:items-center"
         actions={
           <>
-            {activeSession ? (
-              <Link
-                to={practiceHref}
-                className={buttonStyles(
-                  'primary',
-                  'whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm',
-                )}
-              >
-                <Play className="h-4 w-4" aria-hidden="true" />
-                繼續練習
-              </Link>
+            {progress ? (
+              progress.status === 'completed' ? (
+                <Link
+                  to={summaryHref as string}
+                  className={buttonStyles(
+                    'primary',
+                    'whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm',
+                  )}
+                >
+                  <BarChart3 className="h-4 w-4" aria-hidden="true" />
+                  查看摘要
+                </Link>
+              ) : (
+                <Link
+                  to={practiceHref as string}
+                  className={buttonStyles(
+                    'primary',
+                    'whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm',
+                  )}
+                >
+                  <Play className="h-4 w-4" aria-hidden="true" />
+                  繼續練習
+                </Link>
+              )
             ) : (
-              <button
-                type="button"
-                disabled
-                title="練習功能將於下一階段開放"
+              <Button
                 onClick={() => requestMode('sequential')}
-                className={buttonStyles(
-                  'primary',
-                  'whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60',
-                )}
+                loading={startIntent === 'mode' && pendingMode === 'sequential'}
+                disabled={practiceDisabled}
+                className="whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm"
               >
                 <Play className="h-4 w-4" aria-hidden="true" />
                 依序練習
-              </button>
+              </Button>
             )}
-            <button
-              type="button"
-              disabled
-              title="練習功能將於下一階段開放"
+            <Button
+              variant="secondary"
               onClick={() => requestMode('random')}
-              className={buttonStyles(
-                'secondary',
-                'whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60',
-              )}
+              loading={startIntent === 'mode' && pendingMode === 'random'}
+              disabled={practiceDisabled}
+              className="whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm"
             >
               <Shuffle className="h-4 w-4" aria-hidden="true" />
               隨機練習
-            </button>
-            {activeSession && (
-              <button
-                type="button"
+            </Button>
+            {progress && (
+              <Button
+                variant="secondary"
                 onClick={requestRestart}
-                className={buttonStyles(
-                  'secondary',
-                  'whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm',
-                )}
+                loading={startIntent === 'restart'}
+                disabled={startMutation.isPending}
+                className="whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm"
               >
                 <ListOrdered className="h-4 w-4" aria-hidden="true" />
                 重新開始
-              </button>
+              </Button>
             )}
           </>
         }
       />
 
-      <p className="mt-3 text-xs text-muted">
-        練習功能將於下一階段開放；目前可先匯入與瀏覽題庫。
-      </p>
+      {set.questionCount === 0 ? (
+        <p className="mt-3 text-xs text-muted">此題庫沒有題目，請先重新匯入。</p>
+      ) : progress ? (
+        <p className="mt-3 text-xs text-muted">
+          切換模式或重新開始會清除這個題庫目前的作答與統計。
+        </p>
+      ) : (
+        <p className="mt-3 text-xs text-muted">選擇練習模式後即可開始。</p>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="題數" value={`${set.questionCount}`} hint={`${set.topicCount} 個主題`} />
@@ -258,28 +299,30 @@ export function SetDetailPage() {
         </div>
       </Card>
 
-      {activeSession && (
+      {progress && practiceHref && (
         <Card className="mt-6 p-5 sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">練習狀態</p>
               <h2 className="mt-1 font-serif text-xl text-ink">
-                {activeSession.answered > 0
-                  ? `上次練到第 ${activeSession.answered + 1} 題`
-                  : '尚未開始作答'}
+                {progress.status === 'completed'
+                  ? '已完成，可返回修改答案'
+                  : progress.answered > 0
+                    ? `上次練到第 ${progress.answered + 1} 題`
+                    : '尚未開始作答'}
               </h2>
               <p className="mt-1 text-sm text-muted">
-                已答 {activeSession.answered} / {activeSession.total} 題
+                已答 {progress.answered} / {progress.total} 題
               </p>
             </div>
             <Link to={practiceHref} className={buttonStyles('primary')}>
-              {activeSession.answered > 0 ? '繼續練習' : '開始練習'}
+              {progress.status === 'completed' ? '返回修改' : '繼續練習'}
             </Link>
           </div>
           <div className="mt-5">
             <ProgressBar
-              answered={activeSession.answered}
-              total={activeSession.total}
+              answered={progress.answered}
+              total={progress.total}
               label="目前進度"
             />
           </div>

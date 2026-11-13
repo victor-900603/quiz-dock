@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppRoutes } from './AppRoutes'
 import { mockQuestionsBySet } from './data/mock'
 import { TestAuthProvider } from './test/TestAuthProvider'
-import { getSharedFakeSupabase } from './test/fakeSupabase'
+import { createSeedTables, getSharedFakeSupabase } from './test/fakeSupabase'
 
 vi.mock('./lib/supabase', async () => {
   const { getSharedFakeSupabase } = await import('./test/fakeSupabase')
@@ -32,6 +32,13 @@ function renderApp(route = '/') {
   )
 }
 
+function resetWithoutPractice() {
+  const seed = createSeedTables()
+  seed.practice_sessions = []
+  seed.attempts = []
+  getSharedFakeSupabase().reset(seed)
+}
+
 describe('App', () => {
   beforeEach(() => {
     getSharedFakeSupabase().reset()
@@ -43,6 +50,7 @@ describe('App', () => {
 
     expect(await screen.findByRole('heading', { name: '我的題庫' })).toBeInTheDocument()
     expect((await screen.findAllByText('生物學基礎')).length).toBeGreaterThan(0)
+    expect(await screen.findByText('已答 2 / 20 題')).toBeInTheDocument()
 
     await user.click(screen.getAllByRole('link', { name: '標記' })[0])
     expect(await screen.findByRole('heading', { name: '已標記題目' })).toBeInTheDocument()
@@ -131,13 +139,15 @@ describe('App', () => {
     expect(screen.getAllByText('測試題庫').length).toBeGreaterThan(0)
   })
 
-  it('runs a full sequential practice session and shows the summary', async () => {
+  it('starts a sequential practice and shows the summary', async () => {
     const user = userEvent.setup()
     const questions = mockQuestionsBySet['english-collocations']
     const total = questions.length
-    renderApp('/practice/demo-session?setId=english-collocations&mode=sequential')
+    renderApp('/sets/english-collocations')
 
     expect(await screen.findByRole('heading', { name: '英文片語與搭配詞' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '依序練習' }))
+    expect(await screen.findByText(`第 1 / ${total} 題`)).toBeInTheDocument()
 
     for (const [index, item] of questions.entries()) {
       const answer = item.correctAnswers[0]
@@ -160,7 +170,7 @@ describe('App', () => {
   })
 
   it('resumes a session and supports keyboard answering', async () => {
-    renderApp('/practice/session-biology?setId=biology&mode=sequential&resume=1')
+    renderApp('/practice/session-biology?setId=biology&mode=sequential')
 
     expect(await screen.findByText('第 3 / 20 題')).toBeInTheDocument()
 
@@ -174,8 +184,11 @@ describe('App', () => {
 
   it('opens the navigator, jumps between questions, and hides it while answering', async () => {
     const user = userEvent.setup()
-    renderApp('/practice/demo-session?setId=biology&mode=sequential')
+    resetWithoutPractice()
+    renderApp('/sets/biology')
 
+    expect(await screen.findByRole('heading', { name: '生物學基礎' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '依序練習' }))
     expect(await screen.findByText('第 1 / 20 題')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '關閉題號列表' })).not.toBeInTheDocument()
 
@@ -205,8 +218,11 @@ describe('App', () => {
 
   it('uses the practice header and bottom toolbar for question navigation', async () => {
     const user = userEvent.setup()
-    renderApp('/practice/demo-session?setId=biology&mode=sequential')
+    resetWithoutPractice()
+    renderApp('/sets/biology')
 
+    expect(await screen.findByRole('heading', { name: '生物學基礎' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '依序練習' }))
     expect(await screen.findByText('第 1 / 20 題')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '返回題庫' })).toBeInTheDocument()
     expect(screen.getAllByText('生物學基礎').length).toBeGreaterThan(0)
@@ -246,8 +262,11 @@ describe('App', () => {
   })
 
   it('closes the navigator when answering with the keyboard', async () => {
-    renderApp('/practice/demo-session?setId=biology&mode=sequential')
+    resetWithoutPractice()
+    renderApp('/sets/biology')
 
+    expect(await screen.findByRole('heading', { name: '生物學基礎' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '依序練習' }))
     expect(await screen.findByText('第 1 / 20 題')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /開啟題號列表/ }))
     expect(screen.getByRole('button', { name: '關閉題號列表' })).toBeInTheDocument()
@@ -260,13 +279,21 @@ describe('App', () => {
 
   it('supports random mode and multi-answer questions', async () => {
     const user = userEvent.setup()
-    const { unmount } = renderApp('/practice/demo-session?setId=biology&mode=random')
+    resetWithoutPractice()
+    const { unmount } = renderApp('/sets/biology')
+
+    expect(await screen.findByRole('heading', { name: '生物學基礎' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '隨機練習' }))
+    expect(await screen.findByText('第 1 / 20 題')).toBeInTheDocument()
     expect((await screen.findAllByText('隨機模式')).length).toBeGreaterThan(0)
     expect(screen.getByLabelText('選項')).toBeInTheDocument()
     unmount()
 
-    renderApp('/practice/demo-session?setId=biology&mode=sequential')
+    resetWithoutPractice()
+    renderApp('/sets/biology')
     expect(await screen.findByRole('heading', { name: '生物學基礎' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '依序練習' }))
+    expect(await screen.findByText('第 1 / 20 題')).toBeInTheDocument()
 
     const answers = ['B', 'B', 'C', 'B']
     for (const answer of answers) {
@@ -286,12 +313,30 @@ describe('App', () => {
     expect(await screen.findByText('第 6 / 20 題')).toBeInTheDocument()
   })
 
-  it('shows the summary fallback when there is no location state', async () => {
-    renderApp('/results/demo-session')
+  it('starts practice from a library card', async () => {
+    const user = userEvent.setup()
+    resetWithoutPractice()
+    renderApp('/')
+
+    const titleLink = await screen.findByRole('link', { name: '英文片語與搭配詞' })
+    const card = titleLink.closest('.rounded-xl')
+    expect(card).not.toBeNull()
+
+    await user.click(
+      within(card as HTMLElement).getByRole('button', { name: '開始練習' }),
+    )
+
+    expect(await screen.findByText('第 1 / 20 題')).toBeInTheDocument()
+    expect(screen.getAllByText('英文片語與搭配詞').length).toBeGreaterThan(0)
+  })
+
+  it('shows a summary from stored attempts when opening results directly', async () => {
+    renderApp('/results/session-biology')
 
     expect(await screen.findByRole('heading', { name: '練習完成' })).toBeInTheDocument()
-    expect(screen.getByText('80.0%')).toBeInTheDocument()
-    expect(screen.getByText('答對 12 / 已答 15')).toBeInTheDocument()
+    expect(screen.getAllByText('100.0%').length).toBeGreaterThan(0)
+    expect(screen.getByText('答對 2 / 已答 2')).toBeInTheDocument()
+    expect(screen.getByText('27 秒')).toBeInTheDocument()
   })
 
   it('renames and deletes a quiz set from the detail page', async () => {
@@ -303,8 +348,7 @@ describe('App', () => {
     const randomButton = screen.getByRole('button', { name: '隨機練習' })
     expect(randomButton).toHaveClass('whitespace-nowrap')
     expect(randomButton.parentElement).toHaveClass('grid', 'grid-cols-3', 'sm:flex-nowrap')
-    expect(screen.getByRole('button', { name: '依序練習' })).toBeDisabled()
-    expect(randomButton).toBeDisabled()
+    expect(screen.getAllByRole('link', { name: /繼續練習/ }).length).toBeGreaterThan(0)
 
     await user.click(screen.getByRole('button', { name: '重新命名' }))
     const renameDialog = await screen.findByRole('dialog', { name: '重新命名題庫' })
@@ -340,7 +384,12 @@ describe('App', () => {
 
   it('allows changing an answer and updates the navigator status', async () => {
     const user = userEvent.setup()
-    renderApp('/practice/demo-session?setId=biology&mode=sequential')
+    resetWithoutPractice()
+    renderApp('/sets/biology')
+
+    expect(await screen.findByRole('heading', { name: '生物學基礎' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '依序練習' }))
+    expect(await screen.findByText('第 1 / 20 題')).toBeInTheDocument()
 
     await user.click(await screen.findByRole('radio', { name: /^B/ }))
     await user.click(screen.getByRole('button', { name: '確認答案' }))
@@ -354,14 +403,37 @@ describe('App', () => {
     await user.click(screen.getByRole('radio', { name: /^A/ }))
     await user.click(screen.getByRole('button', { name: '更新答案' }))
     expect(await screen.findByText('答錯了')).toBeInTheDocument()
+    expect(await screen.findByText('答案已更新。')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /展開題號列表/ }))
     expect(screen.getByRole('button', { name: '第 1 題，答錯' })).toBeInTheDocument()
   })
 
+  it('shows an error when submitting an answer fails', async () => {
+    const user = userEvent.setup()
+    resetWithoutPractice()
+    renderApp('/sets/biology')
+
+    expect(await screen.findByRole('heading', { name: '生物學基礎' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '依序練習' }))
+    expect(await screen.findByText('第 1 / 20 題')).toBeInTheDocument()
+
+    getSharedFakeSupabase().failNextRpc('submit_answer', {
+      message: 'Failed to fetch',
+    })
+
+    await user.click(await screen.findByRole('radio', { name: /^B/ }))
+    await user.click(screen.getByRole('button', { name: '確認答案' }))
+
+    expect(
+      await screen.findByText('無法連線到伺服器，請檢查網路後再試一次。'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '確認答案' })).toBeEnabled()
+  })
+
   it('restarts from the results page and clears progress', async () => {
     const user = userEvent.setup()
-    renderApp('/results/demo-session')
+    renderApp('/results/session-biology')
 
     expect(await screen.findByRole('heading', { name: '練習完成' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '重新開始' }))
@@ -376,14 +448,22 @@ describe('App', () => {
     )
   })
 
-  it('disables practice actions until the practice phase is connected', async () => {
+  it('confirms before switching practice mode and clears attempts', async () => {
+    const user = userEvent.setup()
     renderApp('/sets/biology')
 
-    expect(await screen.findByRole('button', { name: '依序練習' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: '隨機練習' })).toBeDisabled()
-    expect(
-      screen.getByText('練習功能將於下一階段開放；目前可先匯入與瀏覽題庫。'),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '生物學基礎' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '隨機練習' }))
+
+    const dialog = await screen.findByRole('dialog', { name: '切換模式' })
+    await user.click(within(dialog).getByRole('button', { name: '切換模式' }))
+
+    expect(await screen.findByText('第 1 / 20 題')).toBeInTheDocument()
+    expect((await screen.findAllByText('隨機模式')).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /展開題號列表/ })).toHaveAttribute(
+      'aria-label',
+      expect.stringContaining('已答 0 / 20'),
+    )
   })
 
   it('validates login and hides signup', async () => {
@@ -425,9 +505,13 @@ describe('App', () => {
     expect(await screen.findByText('找不到題庫')).toBeInTheDocument()
     second.unmount()
 
-    const third = renderApp('/practice/demo-session?setId=missing')
-    expect(await screen.findByText('找不到題目')).toBeInTheDocument()
+    const third = renderApp('/practice/missing-session?setId=missing')
+    expect(await screen.findByText('找不到練習')).toBeInTheDocument()
     third.unmount()
+
+    const fourth = renderApp('/results/missing-session')
+    expect(await screen.findByText('找不到練習摘要')).toBeInTheDocument()
+    fourth.unmount()
 
     renderApp('/not-a-real-page')
     expect(await screen.findByText('找不到頁面')).toBeInTheDocument()

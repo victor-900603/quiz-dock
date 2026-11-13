@@ -2,16 +2,38 @@ import { BookOpen, Clock3, Star } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { buttonStyles } from './Button'
 import { Card } from './Card'
-import { formatPercentValue } from '../lib/format'
-import type { QuizSet } from '../types/quiz'
+import { formatPercentValue, formatShortDateTime } from '../lib/format'
+import type { PracticeProgress, QuizSet } from '../types/quiz'
 
 type QuizSetCardProps = {
   set: QuizSet
   markedCount: number
+  progress?: PracticeProgress
+  practicePending?: boolean
+  onPractice?: () => void
 }
 
-export function QuizSetCard({ set, markedCount }: QuizSetCardProps) {
-  const hasProgress = Boolean(set.activeSession && set.activeSession.answered > 0)
+export function QuizSetCard({
+  set,
+  markedCount,
+  progress,
+  practicePending = false,
+  onPractice,
+}: QuizSetCardProps) {
+  const accuracy =
+    progress && progress.answered > 0
+      ? (progress.correct / progress.answered) * 100
+      : set.accuracy
+  const statusLabel = progress
+    ? progress.status === 'completed'
+      ? '已完成'
+      : '進行中'
+    : '未開始'
+  const practiceHref = progress
+    ? progress.status === 'completed'
+      ? `/results/${progress.id}`
+      : `/practice/${progress.id}?setId=${set.id}&mode=${progress.mode}`
+    : null
 
   return (
     <Card className="flex h-full flex-col p-5 sm:p-6">
@@ -41,7 +63,7 @@ export function QuizSetCard({ set, markedCount }: QuizSetCardProps) {
         </div>
         <div>
           <dt className="text-[10px] uppercase tracking-[0.12em] text-muted">正確率</dt>
-          <dd className="mt-1 font-mono text-sm text-ink">{formatPercentValue(set.accuracy)}</dd>
+          <dd className="mt-1 font-mono text-sm text-ink">{formatPercentValue(accuracy)}</dd>
         </div>
       </dl>
 
@@ -52,26 +74,35 @@ export function QuizSetCard({ set, markedCount }: QuizSetCardProps) {
         </span>
         <span className="inline-flex items-center gap-1.5">
           <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
-          {set.lastPracticedLabel ?? '尚未練習'}
+          {progress
+            ? formatShortDateTime(progress.updatedAt)
+            : set.lastPracticedLabel ?? '尚未練習'}
         </span>
         <span className="inline-flex items-center gap-1.5">
           <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
-          {hasProgress ? '進行中' : '未開始'}
+          {statusLabel}
         </span>
       </div>
 
       <div className="mt-auto flex items-center gap-2 pt-5">
-        <button
-          type="button"
-          disabled
-          title="練習功能將於下一階段開放"
-          className={buttonStyles(
-            'primary',
-            'min-h-10 px-3 disabled:cursor-not-allowed disabled:opacity-60',
-          )}
-        >
-          練習（下一階段）
-        </button>
+        {practiceHref ? (
+          <Link to={practiceHref} className={buttonStyles('primary', 'min-h-10 px-3')}>
+            {progress?.status === 'completed' ? '查看摘要' : '繼續練習'}
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={onPractice}
+            disabled={!onPractice || practicePending || set.questionCount === 0}
+            title={set.questionCount === 0 ? '此題庫沒有題目' : undefined}
+            className={buttonStyles(
+              'primary',
+              'min-h-10 px-3 disabled:cursor-not-allowed disabled:opacity-60',
+            )}
+          >
+            {practicePending ? '開始中...' : '開始練習'}
+          </button>
+        )}
         <Link to={`/sets/${set.id}`} className={buttonStyles('secondary', 'min-h-10 px-3')}>
           詳情
         </Link>
