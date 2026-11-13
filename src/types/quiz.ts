@@ -22,19 +22,60 @@ export type TopicStat = {
 
 export type PracticeMode = 'sequential' | 'random'
 
-export type SessionAttempt = {
-  questionId: string
-  selected: string[]
-  correct: boolean
+export type PracticeStatus = 'in_progress' | 'completed' | 'abandoned'
+
+export type PracticeSession = {
+  id: string
+  setId: string
+  mode: PracticeMode
+  status: PracticeStatus
+  questionOrder: string[]
+  currentIndex: number
+  totalQuestions: number
+  answeredCount: number
+  correctCount: number
+  startedAt: string
+  completedAt: string | null
+  updatedAt: string
 }
 
-export type ActiveSession = {
+export type PracticeAttempt = {
+  questionId: string
+  selected: string[]
+  isCorrect: boolean
+  durationMs: number | null
+  answeredAt: string
+  updatedAt: string
+}
+
+export type PracticeProgress = {
   id: string
+  setId: string
+  mode: PracticeMode
+  status: PracticeStatus
   answered: number
   correct: number
   total: number
-  mode: PracticeMode
-  attempts?: SessionAttempt[]
+  updatedAt: string
+}
+
+export type PracticeSessionDetail = {
+  session: PracticeSession
+  set: QuizSet
+  questions: Question[]
+  attempts: PracticeAttempt[]
+}
+
+export type SubmitAnswerResult = {
+  isCorrect: boolean
+  correctAnswers: string[]
+  explanation: string
+  alreadyAnswered: boolean
+  wasUpdated: boolean
+  sessionStatus: PracticeStatus
+  currentIndex: number
+  answeredCount: number
+  correctCount: number
 }
 
 export type QuizSet = {
@@ -48,21 +89,10 @@ export type QuizSet = {
   lastPracticedLabel: string | null
   markedCount: number
   topics: TopicStat[]
-  activeSession?: ActiveSession
 }
 
 export type MarkedQuestion = Question & {
   setId: string
   setTitle: string
   markedAt: string
-}
-
-export type SessionSummary = {
-  setId: string
-  setTitle: string
-  mode: PracticeMode
-  answered: number
-  correct: number
-  durationSeconds: number
-  topics: TopicStat[]
 }

@@ -3,10 +3,12 @@ import {
   findFirstUnanswered,
   findNextUnanswered,
   hydrateAnswers,
+  resolveStartIndex,
   summarizeAnswers,
+  summarizeAttempts,
   type AnswerState,
 } from './session'
-import type { Question } from '../../types/quiz'
+import type { PracticeAttempt, Question } from '../../types/quiz'
 
 const questions: Question[] = [
   {
@@ -96,6 +98,75 @@ describe('findFirstUnanswered', () => {
         'q-3': answer(['C'], true),
       }),
     ).toBe(2)
+  })
+})
+
+function attempt(
+  questionId: string,
+  isCorrect: boolean,
+  durationMs: number | null,
+): PracticeAttempt {
+  return {
+    questionId,
+    selected: ['A'],
+    isCorrect,
+    durationMs,
+    answeredAt: '2026-11-13T00:00:00.000Z',
+    updatedAt: '2026-11-13T00:00:00.000Z',
+  }
+}
+
+describe('summarizeAttempts', () => {
+  it('counts attempts, correct answers, duration, and topics', () => {
+    const summary = summarizeAttempts(questions, [
+      attempt('q-1', true, 1000),
+      attempt('q-3', false, 2500),
+    ])
+
+    expect(summary.answered).toBe(2)
+    expect(summary.correct).toBe(1)
+    expect(summary.durationSeconds).toBe(3.5)
+    expect(summary.topics).toEqual([
+      { name: '細胞結構', answered: 1, correct: 1 },
+      { name: '遺傳學', answered: 1, correct: 0 },
+    ])
+  })
+
+  it('ignores attempts for questions outside the session and missing durations', () => {
+    const summary = summarizeAttempts(questions, [
+      attempt('q-2', true, null),
+      attempt('missing', true, 5000),
+    ])
+
+    expect(summary.answered).toBe(1)
+    expect(summary.correct).toBe(1)
+    expect(summary.durationSeconds).toBe(0)
+  })
+})
+
+describe('resolveStartIndex', () => {
+  it('returns the server index when that question is unanswered', () => {
+    expect(resolveStartIndex(questions, { 'q-1': answer(['A'], true) }, 1, false)).toBe(1)
+  })
+
+  it('falls back to the first unanswered question when the server index is answered', () => {
+    expect(
+      resolveStartIndex(
+        questions,
+        { 'q-1': answer(['A'], true), 'q-2': answer(['B'], true) },
+        1,
+        false,
+      ),
+    ).toBe(2)
+  })
+
+  it('returns the last question for completed sessions', () => {
+    expect(resolveStartIndex(questions, {}, 3, true)).toBe(2)
+  })
+
+  it('clamps out-of-range indexes and handles empty sessions', () => {
+    expect(resolveStartIndex(questions, {}, 9, false)).toBe(2)
+    expect(resolveStartIndex([], {}, 0, false)).toBe(0)
   })
 })
 

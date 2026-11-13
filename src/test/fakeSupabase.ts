@@ -6,7 +6,13 @@ export type FakeError = {
 
 export type FakeRow = Record<string, unknown>
 
-export type FakeTableName = 'quiz_sets' | 'questions'
+export type FakeTableName =
+  | 'quiz_sets'
+  | 'questions'
+  | 'practice_sessions'
+  | 'attempts'
+
+export type FakeRpcName = 'start_practice_session' | 'submit_answer'
 
 export type FakeTables = Record<FakeTableName, FakeRow[]>
 
@@ -17,6 +23,7 @@ export type FakeResult = {
 
 export type FakeSupabase = {
   from: (table: string) => FakeQuery
+  rpc: (fn: FakeRpcName, args?: Record<string, unknown>) => Promise<FakeResult>
   reset: (seed?: Partial<FakeTables>) => void
   failNextInsert: (table: FakeTableName, error: FakeError, after?: number) => void
   failNextSelect: (table: FakeTableName, error: FakeError) => void
@@ -25,6 +32,7 @@ export type FakeSupabase = {
     action: FakeAction,
     error: FakeError,
   ) => void
+  failNextRpc: (fn: FakeRpcName, error: FakeError) => void
   consumeInsertFailure: (table: FakeTableName) => FakeError | null
   consumeActionFailure: (table: FakeTableName, action: FakeAction) => FakeError | null
   readonly tables: FakeTables
@@ -38,13 +46,20 @@ type FakeAction = 'select' | 'insert' | 'upsert' | 'update' | 'delete'
 type FakeMode = 'single' | 'maybeSingle' | null
 
 function emptyTables(): FakeTables {
-  return { quiz_sets: [], questions: [] }
+  return {
+    quiz_sets: [],
+    questions: [],
+    practice_sessions: [],
+    attempts: [],
+  }
 }
 
 function cloneTables(tables: FakeTables): FakeTables {
   return {
     quiz_sets: tables.quiz_sets.map((row) => ({ ...row })),
     questions: tables.questions.map((row) => ({ ...row })),
+    practice_sessions: tables.practice_sessions.map((row) => ({ ...row })),
+    attempts: tables.attempts.map((row) => ({ ...row })),
   }
 }
 
@@ -67,6 +82,32 @@ function asRows(value: unknown): FakeRow[] {
   }
 
   return []
+}
+
+function asString(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === 'string')
+}
+
+function normalizeAnswers(values: string[]): string[] {
+  return [...new Set(values)].sort()
+}
+
+function arraysEqual(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index])
+}
+
+function shuffle<T>(items: T[]): T[] {
+  const copy = [...items]
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1))
+    ;[copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]]
+  }
+  return copy
 }
 
 function compareRows(
@@ -204,16 +245,7 @@ export class FakeQuery implements PromiseLike<FakeResult> {
       }
     } else if (this.action === 'delete') {
       result = matching
-      const deletedIds = new Set(
-        matching.map((row) => row.id).filter((id): id is string => typeof id === 'string'),
-      )
-      this.owner.tables[this.table] = table.filter((row) => !matching.includes(row))
-
-      if (this.table === 'quiz_sets') {
-        this.owner.tables.questions = this.owner.tables.questions.filter(
-          (row) => !deletedIds.has(String(row.set_id)),
-        )
-      }
+      this.deleteRows(matching)
     } else {
       result = matching
     }
@@ -237,6 +269,42 @@ export class FakeQuery implements PromiseLike<FakeResult> {
     }
 
     return { data: result, error: null }
+  }
+
+  private deleteRows(matching: FakeRow[]): void {
+    this.owner.tables[this.table] = this.owner.tables[this.table].filter(
+      (row) => !matching.includes(row),
+    )
+
+    const deletedIds = new Set(
+      matching
+        .map((row) => row.id)
+        .filter((id): id is string => typeof id === 'string'),
+    )
+
+    if (this.table === 'quiz_sets') {
+      this.owner.tables.questions = this.owner.tables.questions.filter(
+        (row) => !deletedIds.has(String(row.set_id)),
+      )
+      this.owner.tables.practice_sessions = this.owner.tables.practice_sessions.filter(
+        (row) => !deletedIds.has(String(row.set_id)),
+      )
+      this.owner.tables.attempts = this.owner.tables.attempts.filter(
+        (row) => !deletedIds.has(String(row.set_id)),
+      )
+    }
+
+    if (this.table === 'questions') {
+      this.owner.tables.attempts = this.owner.tables.attempts.filter(
+        (row) => !deletedIds.has(String(row.question_id)),
+      )
+    }
+
+    if (this.table === 'practice_sessions') {
+      this.owner.tables.attempts = this.owner.tables.attempts.filter(
+        (row) => !deletedIds.has(String(row.session_id)),
+      )
+    }
   }
 
   private applyWrite(table: FakeRow[]): FakeRow[] {
@@ -287,11 +355,208 @@ export function createFakeSupabase(seed: Partial<FakeTables> = {}): FakeSupabase
     action: FakeAction
     error: FakeError
   } | null = null
-  let insertCounts: Record<FakeTableName, number> = { quiz_sets: 0, questions: 0 }
+  let rpcFailure: { name: FakeRpcName; error: FakeError } | null = null
+  let insertCounts: Record<FakeTableName, number> = {
+    quiz_sets: 0,
+    questions: 0,
+    practice_sessions: 0,
+    attempts: 0,
+  }
+
+  function startPracticeSession(args: Record<string, unknown>): FakeResult {
+    const setId = asString(args.p_set_id)
+    const mode = args.p_mode === 'random' ? 'random' : 'sequential'
+    const restart = args.p_restart === true
+    const set = tables.quiz_sets.find((row) => row.id === setId)
+
+    if (!set) return { data: null, error: { message: 'set not found' } }
+
+    const questions = tables.questions
+      .filter((row) => row.set_id === setId)
+      .sort((left, right) => Number(left.sort_order) - Number(right.sort_order))
+
+    if (questions.length === 0) {
+      return { data: null, error: { message: 'set has no questions' } }
+    }
+
+    const existing = tables.practice_sessions.find((row) => row.set_id === setId)
+    if (existing && !restart) {
+      return { data: { ...existing }, error: null }
+    }
+
+    const questionOrder =
+      mode === 'random'
+        ? shuffle(questions.map((question) => String(question.id)))
+        : questions.map((question) => String(question.id))
+    const now = new Date().toISOString()
+
+    if (existing) {
+      tables.attempts = tables.attempts.filter((row) => row.session_id !== existing.id)
+      Object.assign(existing, {
+        mode,
+        status: 'in_progress',
+        question_order: questionOrder,
+        current_index: 0,
+        total_questions: questionOrder.length,
+        answered_count: 0,
+        correct_count: 0,
+        started_at: now,
+        updated_at: now,
+        completed_at: null,
+      })
+      return { data: { ...existing }, error: null }
+    }
+
+    const created: FakeRow = {
+      id: fakeId(),
+      user_id: TEST_OWNER_ID,
+      set_id: setId,
+      mode,
+      status: 'in_progress',
+      question_order: questionOrder,
+      current_index: 0,
+      total_questions: questionOrder.length,
+      answered_count: 0,
+      correct_count: 0,
+      started_at: now,
+      updated_at: now,
+      completed_at: null,
+    }
+    tables.practice_sessions.push(created)
+
+    return { data: { ...created }, error: null }
+  }
+
+  function submitAnswer(args: Record<string, unknown>): FakeResult {
+    const sessionId = asString(args.p_session_id)
+    const questionId = asString(args.p_question_id)
+    const selected = normalizeAnswers(asStringArray(args.p_selected))
+
+    if (selected.length === 0) {
+      return { data: null, error: { message: 'no selection' } }
+    }
+
+    const session = tables.practice_sessions.find((row) => row.id === sessionId)
+    if (!session) {
+      return { data: null, error: { message: 'session not found' } }
+    }
+
+    const question = tables.questions.find(
+      (row) => row.id === questionId && row.set_id === session.set_id,
+    )
+    if (!question) {
+      return { data: null, error: { message: 'question not found' } }
+    }
+
+    const questionOrder = asStringArray(session.question_order)
+    const position = questionOrder.indexOf(questionId)
+    if (position === -1) {
+      return { data: null, error: { message: 'question not in session' } }
+    }
+
+    const correctAnswers = normalizeAnswers(asStringArray(question.correct_answers))
+    const isCorrect = arraysEqual(selected, correctAnswers)
+    const existing = tables.attempts.find(
+      (row) => row.session_id === sessionId && row.question_id === questionId,
+    )
+    const wasUpdated = existing
+      ? !arraysEqual(asStringArray(existing.selected), selected) ||
+        existing.is_correct !== isCorrect
+      : false
+    const now = new Date().toISOString()
+    const durationMs = typeof args.p_duration_ms === 'number' ? args.p_duration_ms : null
+
+    if (existing) {
+      Object.assign(existing, {
+        selected,
+        is_correct: isCorrect,
+        duration_ms: durationMs,
+        updated_at: now,
+      })
+    } else {
+      tables.attempts.push({
+        id: fakeId(),
+        user_id: TEST_OWNER_ID,
+        session_id: sessionId,
+        set_id: session.set_id,
+        question_id: questionId,
+        selected,
+        is_correct: isCorrect,
+        duration_ms: durationMs,
+        answered_at: now,
+        updated_at: now,
+      })
+    }
+
+    const sessionAttempts = tables.attempts.filter((row) => row.session_id === sessionId)
+    const answeredCount = sessionAttempts.length
+    const correctCount = sessionAttempts.filter((row) => row.is_correct === true).length
+    let currentIndex = Number(session.current_index)
+
+    if (!existing) {
+      let nextIndex: number | null = null
+      for (let step = 1; step <= questionOrder.length; step += 1) {
+        const candidate = (position + step) % questionOrder.length
+        const answered = sessionAttempts.some(
+          (row) => row.question_id === questionOrder[candidate],
+        )
+        if (!answered) {
+          nextIndex = candidate
+          break
+        }
+      }
+      currentIndex = nextIndex === null ? questionOrder.length : nextIndex
+    }
+
+    const status =
+      answeredCount >= questionOrder.length ? 'completed' : 'in_progress'
+    if (status === 'completed') currentIndex = questionOrder.length
+
+    Object.assign(session, {
+      current_index: currentIndex,
+      answered_count: answeredCount,
+      correct_count: correctCount,
+      status,
+      completed_at:
+        status === 'completed' ? session.completed_at ?? now : null,
+      updated_at: now,
+    })
+
+    return {
+      data: [
+        {
+          is_correct: isCorrect,
+          correct_answers: correctAnswers,
+          explanation:
+            typeof question.explanation === 'string' ? question.explanation : '',
+          already_answered: Boolean(existing),
+          was_updated: wasUpdated,
+          session_status: status,
+          current_index: currentIndex,
+          answered_count: answeredCount,
+          correct_count: correctCount,
+        },
+      ],
+      error: null,
+    }
+  }
 
   const client: FakeSupabase = {
     from(table) {
       return new FakeQuery(client, table as FakeTableName)
+    },
+    rpc(name, args = {}) {
+      if (rpcFailure && rpcFailure.name === name) {
+        const current = rpcFailure
+        rpcFailure = null
+        return Promise.resolve({ data: null, error: current.error })
+      }
+
+      if (name === 'start_practice_session') {
+        return Promise.resolve(startPracticeSession(args))
+      }
+
+      return Promise.resolve(submitAnswer(args))
     },
     reset(nextSeed) {
       tables = cloneTables(
@@ -299,7 +564,13 @@ export function createFakeSupabase(seed: Partial<FakeTables> = {}): FakeSupabase
       )
       failure = null
       actionFailure = null
-      insertCounts = { quiz_sets: 0, questions: 0 }
+      rpcFailure = null
+      insertCounts = {
+        quiz_sets: 0,
+        questions: 0,
+        practice_sessions: 0,
+        attempts: 0,
+      }
     },
     failNextInsert(table, error, after = 0) {
       failure = { table, error, after }
@@ -309,6 +580,9 @@ export function createFakeSupabase(seed: Partial<FakeTables> = {}): FakeSupabase
     },
     failNextAction(table, action, error) {
       actionFailure = { table, action, error }
+    },
+    failNextRpc(name, error) {
+      rpcFailure = { name, error }
     },
     consumeInsertFailure(table) {
       insertCounts[table] += 1
@@ -378,6 +652,52 @@ export function createSeedTables(): FakeTables {
       })
     })
   })
+
+  const biologyQuestions = mockQuestionsBySet.biology ?? []
+  if (biologyQuestions.length > 0) {
+    const now = '2026-11-13T00:00:00.000Z'
+    tables.practice_sessions.push({
+      id: 'session-biology',
+      user_id: TEST_OWNER_ID,
+      set_id: 'biology',
+      mode: 'sequential',
+      status: 'in_progress',
+      question_order: biologyQuestions.map((question) => question.id),
+      current_index: 2,
+      total_questions: biologyQuestions.length,
+      answered_count: 2,
+      correct_count: 2,
+      started_at: now,
+      updated_at: now,
+      completed_at: null,
+    })
+    tables.attempts.push(
+      {
+        id: 'attempt-bio-1',
+        user_id: TEST_OWNER_ID,
+        session_id: 'session-biology',
+        set_id: 'biology',
+        question_id: 'bio-1',
+        selected: ['B'],
+        is_correct: true,
+        duration_ms: 12000,
+        answered_at: now,
+        updated_at: now,
+      },
+      {
+        id: 'attempt-bio-2',
+        user_id: TEST_OWNER_ID,
+        session_id: 'session-biology',
+        set_id: 'biology',
+        question_id: 'bio-2',
+        selected: ['B'],
+        is_correct: true,
+        duration_ms: 15000,
+        answered_at: now,
+        updated_at: now,
+      },
+    )
+  }
 
   return tables
 }

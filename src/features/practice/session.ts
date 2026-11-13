@@ -1,8 +1,16 @@
-import type { Question, SessionAttempt, TopicStat } from '../../types/quiz'
+import type { PracticeAttempt, Question, TopicStat } from '../../types/quiz'
 
 export type AnswerState = {
   selected: string[]
   submitted: boolean
+  correct: boolean
+  correctAnswers?: string[]
+  explanation?: string
+}
+
+export type AttemptAnswer = {
+  questionId: string
+  selected: string[]
   correct: boolean
 }
 
@@ -12,7 +20,11 @@ export type SessionProgress = {
   topics: TopicStat[]
 }
 
-export function hydrateAnswers(attempts: SessionAttempt[] = []): Record<string, AnswerState> {
+export type AttemptSummary = SessionProgress & {
+  durationSeconds: number
+}
+
+export function hydrateAnswers(attempts: AttemptAnswer[] = []): Record<string, AnswerState> {
   return Object.fromEntries(
     attempts.map((attempt) => [
       attempt.questionId,
@@ -53,6 +65,44 @@ export function summarizeAnswers(
   return { answered, correct, topics: [...topics.values()] }
 }
 
+export function summarizeAttempts(
+  questions: Question[],
+  attempts: PracticeAttempt[],
+): AttemptSummary {
+  const attemptByQuestion = new Map(
+    attempts.map((attempt) => [attempt.questionId, attempt]),
+  )
+  const topics = new Map<string, TopicStat>()
+  let answered = 0
+  let correct = 0
+  let durationMs = 0
+
+  for (const question of questions) {
+    const attempt = attemptByQuestion.get(question.id)
+    if (!attempt) continue
+
+    answered += 1
+    if (attempt.isCorrect) correct += 1
+    durationMs += attempt.durationMs ?? 0
+
+    const topic = topics.get(question.topic) ?? {
+      name: question.topic,
+      answered: 0,
+      correct: 0,
+    }
+    topic.answered += 1
+    if (attempt.isCorrect) topic.correct += 1
+    topics.set(question.topic, topic)
+  }
+
+  return {
+    answered,
+    correct,
+    durationSeconds: durationMs / 1000,
+    topics: [...topics.values()],
+  }
+}
+
 export function findFirstUnanswered(
   questions: Question[],
   answers: Record<string, AnswerState>,
@@ -72,4 +122,21 @@ export function findNextUnanswered(
   }
 
   return -1
+}
+
+export function resolveStartIndex(
+  questions: Question[],
+  answers: Record<string, AnswerState>,
+  currentIndex: number,
+  completed: boolean,
+): number {
+  if (questions.length === 0) return 0
+  if (completed) return questions.length - 1
+
+  const candidate = Math.min(Math.max(currentIndex, 0), questions.length - 1)
+  if (answers[questions[candidate].id]?.submitted) {
+    return findFirstUnanswered(questions, answers)
+  }
+
+  return candidate
 }

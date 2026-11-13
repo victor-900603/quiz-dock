@@ -19,3 +19,35 @@ export function formatDuration(seconds: number): string {
 export function formatCount(value: number): string {
   return new Intl.NumberFormat('zh-TW').format(value)
 }
+
+const dateTimeFormatter = new Intl.DateTimeFormat('zh-TW', {
+  timeZone: 'Asia/Taipei',
+  dateStyle: 'medium',
+  timeStyle: 'short',
+})
+
+export function formatDateTime(value: string | null): string {
+  if (!value) return '--'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '--'
+
+  return dateTimeFormatter.format(date)
+}
+
+const shortDateTimeFormatter = new Intl.DateTimeFormat('zh-TW', {
+  timeZone: 'Asia/Taipei',
+  month: 'numeric',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
+export function formatShortDateTime(value: string | null): string {
+  if (!value) return '--'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '--'
+
+  return shortDateTimeFormatter.format(date)
+}
