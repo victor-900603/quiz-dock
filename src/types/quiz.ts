@@ -96,3 +96,50 @@ export type MarkedQuestion = Question & {
   setTitle: string
   markedAt: string
 }
+
+export type SetStat = {
+  setId: string
+  title: string
+  answered: number
+  correct: number
+  accuracy: number | null
+  lastAnsweredAt: string | null
+}
+
+export type SessionSummary = {
+  id: string
+  setId: string
+  setTitle: string
+  mode: PracticeMode
+  status: PracticeStatus
+  total: number
+  answered: number
+  correct: number
+  accuracy: number | null
+  startedAt: string
+  updatedAt: string
+  completedAt: string | null
+}
+
+export type DailyActivity = {
+  day: string
+  label: string
+  answered: number
+  correct: number
+}
+
+export type StatsOverview = {
+  totalAnswered: number
+  totalCorrect: number
+  practicedSets: number
+  weeklyAnswered: number
+  setStats: SetStat[]
+  topicStats: TopicStat[]
+  recentSessions: SessionSummary[]
+  dailyActivity: DailyActivity[]
+}
+
+export type SetStatsDetail = {
+  set: SetStat
+  topics: TopicStat[]
+}

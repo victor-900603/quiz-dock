@@ -1,4 +1,5 @@
 import { mockQuestionsBySet, mockSets } from '../data/mock'
+import { taipeiDateKey } from '../lib/dates'
 
 export type FakeError = {
   message: string
@@ -12,6 +13,14 @@ export type FakeTableName =
   | 'practice_sessions'
   | 'attempts'
   | 'question_marks'
+
+export type FakeViewName =
+  | 'v_set_stats'
+  | 'v_topic_stats'
+  | 'v_daily_activity'
+  | 'v_session_summary'
+
+export type FakeSourceName = FakeTableName | FakeViewName
 
 export type FakeRpcName = 'start_practice_session' | 'submit_answer'
 
@@ -27,7 +36,7 @@ export type FakeSupabase = {
   rpc: (fn: FakeRpcName, args?: Record<string, unknown>) => Promise<FakeResult>
   reset: (seed?: Partial<FakeTables>) => void
   failNextInsert: (table: FakeTableName, error: FakeError, after?: number) => void
-  failNextSelect: (table: FakeTableName, error: FakeError) => void
+  failNextSelect: (table: FakeSourceName, error: FakeError) => void
   failNextAction: (
     table: FakeTableName,
     action: FakeAction,
@@ -35,7 +44,7 @@ export type FakeSupabase = {
   ) => void
   failNextRpc: (fn: FakeRpcName, error: FakeError) => void
   consumeInsertFailure: (table: FakeTableName) => FakeError | null
-  consumeActionFailure: (table: FakeTableName, action: FakeAction) => FakeError | null
+  consumeActionFailure: (table: FakeSourceName, action: FakeAction) => FakeError | null
   readonly tables: FakeTables
   readonly insertCounts: Record<FakeTableName, number>
 }
@@ -113,6 +122,178 @@ function shuffle<T>(items: T[]): T[] {
   return copy
 }
 
+// Views are derived from the seeded base tables so tests observe the same
+// aggregation rules as the Supabase views.
+const fakeViewNames = new Set<string>([
+  'v_set_stats',
+  'v_topic_stats',
+  'v_daily_activity',
+  'v_session_summary',
+])
+
+function isFakeView(value: FakeSourceName): value is FakeViewName {
+  return fakeViewNames.has(value)
+}
+
+function toCount(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0
+}
+
+function accuracyOf(correct: number, answered: number): number | null {
+  if (answered <= 0) return null
+  return Math.round((correct / answered) * 1000) / 10
+}
+
+function buildFakeSetStats(tables: FakeTables): FakeRow[] {
+  const groups = new Map<
+    string,
+    {
+      user_id: string
+      set_id: string
+      answered_count: number
+      correct_count: number
+      last_answered_at: string | null
+    }
+  >()
+
+  for (const attempt of tables.attempts) {
+    const setId = asString(attempt.set_id)
+    if (!setId) continue
+
+    const userId = asString(attempt.user_id)
+    const key = JSON.stringify([userId, setId])
+    const group = groups.get(key) ?? {
+      user_id: userId,
+      set_id: setId,
+      answered_count: 0,
+      correct_count: 0,
+      last_answered_at: null,
+    }
+    const answeredAt =
+      typeof attempt.answered_at === 'string' ? attempt.answered_at : null
+
+    group.answered_count += 1
+    if (attempt.is_correct === true) group.correct_count += 1
+    if (answeredAt && (!group.last_answered_at || answeredAt > group.last_answered_at)) {
+      group.last_answered_at = answeredAt
+    }
+
+    groups.set(key, group)
+  }
+
+  return [...groups.values()].map((group) => ({
+    ...group,
+    accuracy: accuracyOf(group.correct_count, group.answered_count),
+  }))
+}
+
+function buildFakeTopicStats(tables: FakeTables): FakeRow[] {
+  const questionById = new Map(
+    tables.questions.map((question) => [asString(question.id), question]),
+  )
+  const groups = new Map<
+    string,
+    {
+      user_id: string
+      set_id: string
+      topic: string | null
+      answered_count: number
+      correct_count: number
+    }
+  >()
+
+  for (const attempt of tables.attempts) {
+    const question = questionById.get(asString(attempt.question_id))
+    if (!question) continue
+
+    const setId = asString(attempt.set_id)
+    if (!setId) continue
+
+    const userId = asString(attempt.user_id)
+    const topic = typeof question.topic === 'string' ? question.topic : null
+    const key = JSON.stringify([userId, setId, topic])
+    const group = groups.get(key) ?? {
+      user_id: userId,
+      set_id: setId,
+      topic,
+      answered_count: 0,
+      correct_count: 0,
+    }
+
+    group.answered_count += 1
+    if (attempt.is_correct === true) group.correct_count += 1
+    groups.set(key, group)
+  }
+
+  return [...groups.values()].map((group) => ({
+    ...group,
+    accuracy: accuracyOf(group.correct_count, group.answered_count),
+  }))
+}
+
+function buildFakeDailyActivity(tables: FakeTables): FakeRow[] {
+  const groups = new Map<
+    string,
+    {
+      user_id: string
+      day: string
+      answered_count: number
+      correct_count: number
+    }
+  >()
+
+  for (const attempt of tables.attempts) {
+    if (typeof attempt.answered_at !== 'string') continue
+
+    const day = taipeiDateKey(attempt.answered_at)
+    if (!day) continue
+
+    const userId = asString(attempt.user_id)
+    const key = JSON.stringify([userId, day])
+    const group = groups.get(key) ?? {
+      user_id: userId,
+      day,
+      answered_count: 0,
+      correct_count: 0,
+    }
+
+    group.answered_count += 1
+    if (attempt.is_correct === true) group.correct_count += 1
+    groups.set(key, group)
+  }
+
+  return [...groups.values()]
+}
+
+function buildFakeSessionSummary(tables: FakeTables): FakeRow[] {
+  return tables.practice_sessions.map((session) => {
+    const answered = toCount(session.answered_count)
+    const correct = toCount(session.correct_count)
+
+    return {
+      id: session.id,
+      user_id: session.user_id,
+      set_id: session.set_id,
+      mode: session.mode,
+      status: session.status,
+      total_questions: toCount(session.total_questions),
+      answered_count: answered,
+      correct_count: correct,
+      accuracy: answered === 0 ? 0 : accuracyOf(correct, answered),
+      started_at: session.started_at,
+      updated_at: session.updated_at,
+      completed_at: session.completed_at ?? null,
+    }
+  })
+}
+
+function buildFakeView(view: FakeViewName, tables: FakeTables): FakeRow[] {
+  if (view === 'v_set_stats') return buildFakeSetStats(tables)
+  if (view === 'v_topic_stats') return buildFakeTopicStats(tables)
+  if (view === 'v_daily_activity') return buildFakeDailyActivity(tables)
+  return buildFakeSessionSummary(tables)
+}
+
 function compareRows(
   left: FakeRow,
   right: FakeRow,
@@ -137,7 +318,7 @@ function compareRows(
 
 export class FakeQuery implements PromiseLike<FakeResult> {
   private owner: FakeSupabase
-  private table: FakeTableName
+  private table: FakeSourceName
   private action: FakeAction = 'select'
   private filters: Array<[string, unknown]> = []
   private inFilters: Array<[string, unknown[]]> = []
@@ -150,7 +331,7 @@ export class FakeQuery implements PromiseLike<FakeResult> {
   private conflictColumns: string[] = []
   private ignoreDuplicates = false
 
-  constructor(owner: FakeSupabase, table: FakeTableName) {
+  constructor(owner: FakeSupabase, table: FakeSourceName) {
     this.owner = owner
     this.table = table
   }
@@ -241,12 +422,16 @@ export class FakeQuery implements PromiseLike<FakeResult> {
     const actionFailure = this.owner.consumeActionFailure(this.table, this.action)
     if (actionFailure) return { data: null, error: actionFailure }
 
-    const table = this.owner.tables[this.table]
+    const table = isFakeView(this.table)
+      ? buildFakeView(this.table, this.owner.tables)
+      : this.owner.tables[this.table]
     const matching = table.filter((row) => this.matches(row))
     let result: FakeRow[]
 
     if (this.action === 'insert' || this.action === 'upsert') {
-      const failure = this.owner.consumeInsertFailure(this.table)
+      const failure = isFakeView(this.table)
+        ? null
+        : this.owner.consumeInsertFailure(this.table)
       if (failure) return { data: null, error: failure }
 
       result = this.applyWrite(table)
@@ -284,6 +469,8 @@ export class FakeQuery implements PromiseLike<FakeResult> {
   }
 
   private deleteRows(matching: FakeRow[]): void {
+    if (isFakeView(this.table)) return
+
     this.owner.tables[this.table] = this.owner.tables[this.table].filter(
       (row) => !matching.includes(row),
     )
@@ -377,7 +564,7 @@ export function createFakeSupabase(seed: Partial<FakeTables> = {}): FakeSupabase
   let tables = cloneTables(initialSeed)
   let failure: { table: FakeTableName; error: FakeError; after: number } | null = null
   let actionFailure: {
-    table: FakeTableName
+    table: FakeSourceName
     action: FakeAction
     error: FakeError
   } | null = null
@@ -570,7 +757,7 @@ export function createFakeSupabase(seed: Partial<FakeTables> = {}): FakeSupabase
 
   const client: FakeSupabase = {
     from(table) {
-      return new FakeQuery(client, table as FakeTableName)
+      return new FakeQuery(client, table as FakeSourceName)
     },
     rpc(name, args = {}) {
       if (rpcFailure && rpcFailure.name === name) {
