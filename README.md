@@ -2,7 +2,7 @@
 
 個人題庫練習網站。目標是把 JSON 題庫變成可跨裝置練習的網站，保留即時解析、標記與正確率統計。
 
-目前狀態：前端已部署到 GitHub Pages，Supabase Auth 已接上；題庫、練習與統計仍使用 4 份 mock 題庫、共 76 題的資料。P0 不開放公開註冊，帳號由站長建立。
+目前狀態：前端已部署到 GitHub Pages，Supabase Auth 與題庫資料層已接上；題庫列表、詳情、JSON 匯入、改名與刪除使用 Supabase。練習、標記與統計仍使用 4 份 mock 題庫、共 76 題的資料。P0 不開放公開註冊，帳號由站長建立。
 
 正式站：`https://victor-900603.github.io/quiz-dock/`
 
@@ -28,7 +28,7 @@ npm run db:types       # 產生 Supabase 資料庫型別
 
 ## 環境變數
 
-複製 `.env.example` 為 `.env.local`，填入 Supabase 專案資訊。登入功能需要 `VITE_SUPABASE_URL` 與 `VITE_SUPABASE_ANON_KEY`。
+複製 `.env.example` 為 `.env.local`，填入 Supabase 專案資訊。登入與題庫資料層需要 `VITE_SUPABASE_URL` 與 `VITE_SUPABASE_ANON_KEY`。
 
 ```bash
 VITE_SUPABASE_URL=
