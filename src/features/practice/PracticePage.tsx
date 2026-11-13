@@ -11,6 +11,7 @@ import {
   type QuestionNavigatorItem,
 } from '../../components/QuestionNavigator'
 import type { PracticeSessionDetail } from '../../types/quiz'
+import { useMarksQuery, useToggleMarkMutation } from '../marks/queries'
 import { isMultiAnswer } from './evaluate'
 import { usePracticeSessionQuery, useSubmitAnswerMutation } from './queries'
 import {
@@ -115,6 +116,8 @@ type PracticeSessionViewProps = {
 function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
   const navigate = useNavigate()
   const submitMutation = useSubmitAnswerMutation()
+  const marksQuery = useMarksQuery()
+  const toggleMarkMutation = useToggleMarkMutation()
   const { session, set, questions, attempts } = detail
   const total = questions.length
   const mode = session.mode
@@ -162,6 +165,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
   const answeredCount = sessionCounts.answered
   const correctCount = sessionCounts.correct
   const remaining = total - answeredCount
+  const marked = (marksQuery.data ?? []).some((mark) => mark.id === question?.id)
 
   const navigatorItems = useMemo<QuestionNavigatorItem[]>(
     () =>
@@ -282,6 +286,18 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
     setEditing(false)
     setEditSelected([])
     setUpdateNotice(null)
+  }
+
+  function handleToggleMark() {
+    if (!question) return
+
+    toggleMarkMutation.mutate({
+      questionId: question.id,
+      marked,
+      question,
+      setId: set.id,
+      setTitle: set.title,
+    })
   }
 
   function handleNext() {
@@ -478,15 +494,14 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
         selected={selected}
         submitted={submitted}
         editing={editing}
-        marked={false}
-        showMark={false}
+        marked={marked}
         submitting={submitMutation.isPending}
         correct={submitted ? currentAnswer?.correct : undefined}
         correctAnswers={currentAnswer?.correctAnswers}
         explanation={currentAnswer?.explanation}
         isLast={remaining === 0}
         onToggleOption={toggleOption}
-        onToggleMark={() => undefined}
+        onToggleMark={handleToggleMark}
         onSubmit={() => void handleSubmit()}
         onEdit={handleEdit}
         onCancelEdit={handleCancelEdit}
@@ -496,6 +511,12 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
       {submitError && (
         <p className="mt-4 text-sm text-wrong" role="alert">
           {submitError}
+        </p>
+      )}
+
+      {toggleMarkMutation.isError && (
+        <p className="mt-4 text-sm text-wrong" role="alert">
+          標記失敗，請再試一次
         </p>
       )}
 

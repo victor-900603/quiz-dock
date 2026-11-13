@@ -8,13 +8,13 @@ import { ImportDialog } from '../../components/ImportDialog'
 import { PageHeader } from '../../components/PageHeader'
 import { ProgressBar } from '../../components/ProgressBar'
 import { QuizSetCard } from '../../components/QuizSetCard'
-import { useMockStore } from '../../lib/mockStore'
 import type { ImportPayload } from '../../schemas/import'
+import { useMarksQuery } from '../marks/queries'
 import { usePracticeSessionsQuery, useStartPracticeMutation } from '../practice/queries'
 import { useImportSetMutation, useSetsQuery } from './queries'
 
 export function LibraryPage() {
-  const { marks } = useMockStore()
+  const marksQuery = useMarksQuery()
   const navigate = useNavigate()
   const setsQuery = useSetsQuery()
   const sessionsQuery = usePracticeSessionsQuery()
@@ -25,6 +25,7 @@ export function LibraryPage() {
   const [actionError, setActionError] = useState<string | null>(null)
 
   const sets = setsQuery.data ?? []
+  const marks = marksQuery.data ?? []
   const progressBySet = new Map(
     (sessionsQuery.data ?? []).map((progress) => [progress.setId, progress]),
   )

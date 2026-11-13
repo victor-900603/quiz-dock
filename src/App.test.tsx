@@ -372,7 +372,7 @@ describe('App', () => {
     renderApp('/marks')
 
     expect(await screen.findByRole('heading', { name: '已標記題目' })).toBeInTheDocument()
-    expect(screen.getAllByLabelText('取消標記')).toHaveLength(10)
+    expect(await screen.findAllByLabelText('取消標記')).toHaveLength(10)
 
     await user.click(screen.getAllByLabelText('取消標記')[0])
     await waitFor(() => expect(screen.getAllByLabelText('取消標記')).toHaveLength(9))
@@ -380,6 +380,27 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: /光合作用的主要能量來源/ }))
     expect(screen.getByText('解析')).toBeInTheDocument()
     expect(screen.getByText('光合作用利用光能，將二氧化碳與水轉換成葡萄糖並釋放氧氣。')).toBeInTheDocument()
+  })
+
+  it('toggles marks from practice and lists them on the marks page', async () => {
+    const user = userEvent.setup()
+    renderApp('/practice/session-biology?setId=biology&mode=sequential')
+
+    expect(await screen.findByText('第 3 / 20 題')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: '取消標記' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '切換到下一題' }))
+    expect(await screen.findByText('第 4 / 20 題')).toBeInTheDocument()
+
+    await user.click(await screen.findByRole('button', { name: '標記題目' }))
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '取消標記' })).toBeInTheDocument(),
+    )
+
+    await user.click(screen.getAllByRole('link', { name: '標記' })[0])
+    expect(await screen.findByRole('heading', { name: '已標記題目' })).toBeInTheDocument()
+    expect(await screen.findAllByLabelText('取消標記')).toHaveLength(11)
+    expect(screen.getByText('下列哪一項屬於生產者？')).toBeInTheDocument()
   })
 
   it('allows changing an answer and updates the navigator status', async () => {

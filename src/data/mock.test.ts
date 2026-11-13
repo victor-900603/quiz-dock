@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mockMarks, mockQuestionContext, mockQuestionsBySet, mockSets } from './mock'
+import { mockQuestionsBySet, mockSets } from './mock'
 
 describe('mock data', () => {
   it('keeps set metadata and questions consistent', () => {
@@ -25,15 +25,5 @@ describe('mock data', () => {
     }
 
     expect(questionIds.size).toBe(76)
-  })
-
-  it('links every mark to an existing question and set', () => {
-    for (const mark of mockMarks) {
-      const context = mockQuestionContext.get(mark.id)
-
-      expect(context).toBeDefined()
-      expect(context?.set.id).toBe(mark.setId)
-      expect(context?.set.title).toBe(mark.setTitle)
-    }
   })
 })

@@ -1,15 +1,30 @@
 import { useState } from 'react'
 import { ChevronDown, Star } from 'lucide-react'
+import { Button } from '../../components/Button'
 import { Card } from '../../components/Card'
 import { EmptyState } from '../../components/EmptyState'
 import { MarkButton } from '../../components/MarkButton'
 import { PageHeader } from '../../components/PageHeader'
 import { cn } from '../../lib/cn'
-import { useMockStore } from '../../lib/mockStore'
+import { formatShortDateTime } from '../../lib/format'
+import type { MarkedQuestion } from '../../types/quiz'
+import { useMarksQuery, useToggleMarkMutation } from './queries'
 
 export function MarksPage() {
-  const { marks, toggleMark } = useMockStore()
+  const marksQuery = useMarksQuery()
+  const toggleMarkMutation = useToggleMarkMutation()
   const [expanded, setExpanded] = useState<string | null>(null)
+  const marks = marksQuery.data ?? []
+
+  function handleRemove(mark: MarkedQuestion) {
+    toggleMarkMutation.mutate({
+      questionId: mark.id,
+      marked: true,
+      question: mark,
+      setId: mark.setId,
+      setTitle: mark.setTitle,
+    })
+  }
 
   return (
     <>
@@ -19,7 +34,32 @@ export function MarksPage() {
         description="練習時點星號的題目會集中在這裡，方便之後快速翻閱。"
       />
 
-      {marks.length === 0 ? (
+      {toggleMarkMutation.isError && (
+        <p className="mb-4 text-sm text-wrong" role="alert">
+          標記失敗，請再試一次
+        </p>
+      )}
+
+      {marksQuery.isPending ? (
+        <Card className="p-6 text-sm text-muted" role="status">
+          載入標記中...
+        </Card>
+      ) : marksQuery.isError ? (
+        <Card className="p-6" role="alert">
+          <p className="text-sm text-wrong">
+            {marksQuery.error instanceof Error
+              ? marksQuery.error.message
+              : '無法載入標記，請稍後再試。'}
+          </p>
+          <Button
+            variant="secondary"
+            className="mt-4"
+            onClick={() => void marksQuery.refetch()}
+          >
+            重新載入
+          </Button>
+        </Card>
+      ) : marks.length === 0 ? (
         <EmptyState
           icon={<Star className="h-8 w-8" aria-hidden="true" />}
           title="還沒有標記題目"
@@ -33,7 +73,7 @@ export function MarksPage() {
             return (
               <Card key={mark.id} className="overflow-hidden">
                 <div className="flex items-start gap-3 p-4 sm:p-5">
-                  <MarkButton marked onToggle={() => toggleMark(mark.id)} />
+                  <MarkButton marked onToggle={() => handleRemove(mark)} />
                   <button
                     type="button"
                     onClick={() => setExpanded(open ? null : mark.id)}
@@ -46,7 +86,9 @@ export function MarksPage() {
                       <span className="rounded-full border border-line bg-paper px-2 py-0.5">
                         {mark.topic}
                       </span>
-                      <span className="ml-auto">{mark.markedAt}</span>
+                      <span className="ml-auto">
+                        {formatShortDateTime(mark.markedAt)}
+                      </span>
                     </div>
                     <p className="mt-2 font-serif text-lg leading-snug text-ink">{mark.prompt}</p>
                     <span className="mt-2 inline-flex items-center gap-1 text-xs text-muted">

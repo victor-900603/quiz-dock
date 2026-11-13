@@ -1,4 +1,4 @@
-import type { MarkedQuestion, Question, QuizSet, TopicStat } from '../types/quiz'
+import type { Question, QuizSet, TopicStat } from '../types/quiz'
 
 function question(
   id: string,
@@ -1171,77 +1171,6 @@ export const mockSets: QuizSet[] = [
     ],
   },
 ]
-
-export const mockMarks: MarkedQuestion[] = [
-  {
-    ...mockQuestionsBySet.biology[0],
-    setId: 'biology',
-    setTitle: '生物學基礎',
-    markedAt: '今天 09:35',
-  },
-  {
-    ...mockQuestionsBySet['taiwan-history'][1],
-    setId: 'taiwan-history',
-    setTitle: '台灣史綱要',
-    markedAt: '今天 08:50',
-  },
-  {
-    ...mockQuestionsBySet.biology[2],
-    setId: 'biology',
-    setTitle: '生物學基礎',
-    markedAt: '昨天 21:10',
-  },
-  {
-    ...mockQuestionsBySet['english-collocations'][3],
-    setId: 'english-collocations',
-    setTitle: '英文片語與搭配詞',
-    markedAt: '11 月 08 日',
-  },
-  {
-    ...mockQuestionsBySet.biology[4],
-    setId: 'biology',
-    setTitle: '生物學基礎',
-    markedAt: '11 月 07 日',
-  },
-  {
-    ...mockQuestionsBySet['taiwan-history'][8],
-    setId: 'taiwan-history',
-    setTitle: '台灣史綱要',
-    markedAt: '11 月 06 日',
-  },
-  {
-    ...mockQuestionsBySet['english-collocations'][16],
-    setId: 'english-collocations',
-    setTitle: '英文片語與搭配詞',
-    markedAt: '11 月 05 日',
-  },
-  {
-    ...mockQuestionsBySet['taiwan-history'][17],
-    setId: 'taiwan-history',
-    setTitle: '台灣史綱要',
-    markedAt: '11 月 03 日',
-  },
-  {
-    ...mockQuestionsBySet['computer-science'][6],
-    setId: 'computer-science',
-    setTitle: '計算機概論',
-    markedAt: '11 月 02 日',
-  },
-  {
-    ...mockQuestionsBySet['computer-science'][13],
-    setId: 'computer-science',
-    setTitle: '計算機概論',
-    markedAt: '10 月 31 日',
-  },
-]
-
-export const mockQuestionContext = new Map<string, { question: Question; set: QuizSet }>()
-
-for (const set of mockSets) {
-  for (const item of mockQuestionsBySet[set.id] ?? []) {
-    mockQuestionContext.set(item.id, { question: item, set })
-  }
-}
 
 export const mockStats = {
   totalAnswered: 372,

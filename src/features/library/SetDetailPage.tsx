@@ -21,13 +21,15 @@ import { TopicCounts } from '../../components/TopicCounts'
 import { formatPercentValue } from '../../lib/format'
 import { useMockStore } from '../../lib/mockStore'
 import type { PracticeMode } from '../../types/quiz'
+import { useMarksQuery } from '../marks/queries'
 import { usePracticeSessionsQuery, useStartPracticeMutation } from '../practice/queries'
 import { useDeleteSetMutation, useRenameSetMutation, useSetQuery } from './queries'
 
 export function SetDetailPage() {
   const { setId } = useParams()
   const navigate = useNavigate()
-  const { marks, renameSet, removeSet } = useMockStore()
+  const { renameSet, removeSet } = useMockStore()
+  const marksQuery = useMarksQuery()
   const setQuery = useSetQuery(setId)
   const sessionsQuery = usePracticeSessionsQuery()
   const startMutation = useStartPracticeMutation()
@@ -185,7 +187,7 @@ export function SetDetailPage() {
     )
   }
 
-  const markedCount = marks.filter((mark) => mark.setId === set.id).length
+  const markedCount = (marksQuery.data ?? []).filter((mark) => mark.setId === set.id).length
   const answeredCount = progress?.answered ?? set.answeredCount
   const accuracy =
     progress && progress.answered > 0
