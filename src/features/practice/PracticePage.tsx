@@ -165,7 +165,11 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
   const answeredCount = sessionCounts.answered
   const correctCount = sessionCounts.correct
   const remaining = total - answeredCount
-  const marked = (marksQuery.data ?? []).some((mark) => mark.id === question?.id)
+  const markedIds = useMemo(
+    () => new Set((marksQuery.data ?? []).map((mark) => mark.id)),
+    [marksQuery.data],
+  )
+  const marked = question ? markedIds.has(question.id) : false
 
   const navigatorItems = useMemo<QuestionNavigatorItem[]>(
     () =>
@@ -179,9 +183,9 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
             ? 'in-progress'
             : 'unanswered'
 
-        return { id: item.id, number: item.number, status }
+        return { id: item.id, number: item.number, status, marked: markedIds.has(item.id) }
       }),
-    [answers, questions],
+    [answers, markedIds, questions],
   )
 
   useEffect(() => {

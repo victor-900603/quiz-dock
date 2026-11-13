@@ -7,9 +7,9 @@ import {
 } from './QuestionNavigator'
 
 const items: QuestionNavigatorItem[] = [
-  { id: 'q-1', number: 1, status: 'correct' },
-  { id: 'q-2', number: 2, status: 'in-progress' },
-  { id: 'q-3', number: 3, status: 'unanswered' },
+  { id: 'q-1', number: 1, status: 'correct', marked: true },
+  { id: 'q-2', number: 2, status: 'in-progress', marked: false },
+  { id: 'q-3', number: 3, status: 'unanswered', marked: false },
 ]
 
 function renderNavigator(overrides: Partial<Parameters<typeof QuestionNavigator>[0]> = {}) {
@@ -36,7 +36,9 @@ describe('QuestionNavigator', () => {
     expect(current).toHaveAttribute('aria-current', 'step')
     expect(current).toHaveClass('ring-inset')
     expect(current).not.toHaveClass('ring-offset-2')
-    expect(screen.getByRole('button', { name: '第 1 題，答對' })).toHaveClass('text-correct')
+    expect(screen.getByRole('button', { name: '第 1 題，答對，已標記' })).toHaveClass(
+      'text-correct',
+    )
     expect(screen.getByRole('button', { name: '第 3 題，未作答' })).toHaveClass('text-muted')
 
     await user.click(screen.getByRole('button', { name: '第 3 題，未作答' }))
@@ -54,9 +56,29 @@ describe('QuestionNavigator', () => {
     rerender(<QuestionNavigator {...props} showStatus={false} />)
 
     expect(screen.queryByText('答對')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '第 1 題' })).not.toHaveClass('text-correct')
+    expect(screen.getByRole('button', { name: '第 1 題，已標記' })).not.toHaveClass(
+      'text-correct',
+    )
     expect(screen.getByRole('button', { name: '第 2 題' })).toHaveClass('text-accent')
     expect(screen.getByRole('button', { name: '顯示狀態' })).toBeInTheDocument()
+  })
+
+  it('shows a star on marked questions and keeps it visible when status is hidden', () => {
+    const { props, rerender } = renderNavigator()
+
+    const marked = screen.getByRole('button', { name: '第 1 題，答對，已標記' })
+    const star = marked.querySelector('svg')
+    expect(star).toHaveAttribute('fill', 'currentColor')
+    expect(star).toHaveClass('text-highlight')
+    expect(screen.getByRole('button', { name: '第 2 題，作答中' }).querySelector('svg')).toBeNull()
+    expect(screen.getByText('已標記')).toBeInTheDocument()
+
+    rerender(<QuestionNavigator {...props} showStatus={false} />)
+
+    const hiddenMarked = screen.getByRole('button', { name: '第 1 題，已標記' })
+    expect(hiddenMarked.querySelector('svg')).toHaveAttribute('fill', 'currentColor')
+    expect(screen.getByText('已標記')).toBeInTheDocument()
+    expect(screen.queryByText('答對')).not.toBeInTheDocument()
   })
 
   it('collapses and expands the question list', async () => {

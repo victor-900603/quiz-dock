@@ -204,13 +204,16 @@ describe('App', () => {
     expect(screen.queryByRole('button', { name: '關閉題號列表' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /開啟題號列表/ }))
-    await user.click(screen.getByRole('button', { name: '第 1 題，答對' }))
+    await user.click(screen.getByRole('button', { name: '第 1 題，答對，已標記' }))
     expect(await screen.findByText('答對了')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /開啟題號列表/ }))
     await user.click(screen.getByRole('button', { name: '隱藏狀態' }))
     expect(screen.queryByText('答對')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '第 1 題' })).toHaveAttribute('aria-current', 'step')
+    expect(screen.getByRole('button', { name: '第 1 題，已標記' })).toHaveAttribute(
+      'aria-current',
+      'step',
+    )
 
     await user.keyboard('{Escape}')
     expect(screen.getByRole('button', { name: /開啟題號列表/ })).toBeInTheDocument()
@@ -397,6 +400,18 @@ describe('App', () => {
       expect(screen.getByRole('button', { name: '取消標記' })).toBeInTheDocument(),
     )
 
+    await user.click(screen.getByRole('button', { name: /展開題號列表/ }))
+    expect(
+      screen.getByRole('button', { name: '第 4 題，未作答，已標記' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: '第 3 題，未作答，已標記' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '第 2 題，答對' })).toBeInTheDocument()
+    expect(screen.getByText('已標記')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '關閉題號列表' }))
+    expect(screen.queryByRole('button', { name: '關閉題號列表' })).not.toBeInTheDocument()
+
     await user.click(screen.getAllByRole('link', { name: '標記' })[0])
     expect(await screen.findByRole('heading', { name: '已標記題目' })).toBeInTheDocument()
     expect(await screen.findAllByLabelText('取消標記')).toHaveLength(11)
@@ -427,7 +442,7 @@ describe('App', () => {
     expect(await screen.findByText('答案已更新。')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: /展開題號列表/ }))
-    expect(screen.getByRole('button', { name: '第 1 題，答錯' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '第 1 題，答錯，已標記' })).toBeInTheDocument()
   })
 
   it('shows an error when submitting an answer fails', async () => {

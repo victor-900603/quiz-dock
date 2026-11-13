@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from 'react'
-import { ChevronDown, ChevronUp, Eye, EyeOff, ListChecks, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, Eye, EyeOff, ListChecks, Star, X } from 'lucide-react'
 import { Card } from './Card'
 import { cn } from '../lib/cn'
 
@@ -9,6 +9,7 @@ export type QuestionNavigatorItem = {
   id: string
   number: number
   status: QuestionNavigatorStatus
+  marked: boolean
 }
 
 type QuestionNavigatorProps = {
@@ -152,9 +153,10 @@ export function QuestionNavigator({
             >
               {items.map((item, index) => {
                 const isCurrent = index === currentIndex
-                const label = showStatus
+                const baseLabel = showStatus
                   ? `第 ${item.number} 題，${statusLabels[item.status]}`
                   : `第 ${item.number} 題`
+                const label = item.marked ? `${baseLabel}，已標記` : baseLabel
 
                 return (
                   <button
@@ -164,7 +166,7 @@ export function QuestionNavigator({
                     aria-current={isCurrent ? 'step' : undefined}
                     aria-label={label}
                     className={cn(
-                      'flex min-h-11 items-center justify-center rounded-md border font-mono text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+                      'relative flex min-h-11 items-center justify-center rounded-md border font-mono text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
                       showStatus
                         ? statusClasses[item.status]
                         : 'border-line bg-surface text-muted hover:border-accent/50 hover:text-ink',
@@ -175,39 +177,52 @@ export function QuestionNavigator({
                     )}
                   >
                     {String(item.number).padStart(2, '0')}
+                    {item.marked && (
+                      <Star
+                        className="pointer-events-none absolute right-0.5 top-0.5 h-3 w-3 text-highlight"
+                        fill="currentColor"
+                        aria-hidden="true"
+                      />
+                    )}
                   </button>
                 )
               })}
             </div>
           </nav>
 
-          {showStatus && (
-            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-correct" aria-hidden="true" />
-                答對
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-wrong" aria-hidden="true" />
-                答錯
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-accent-soft ring-1 ring-accent/40" aria-hidden="true" />
-                作答中
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full border border-line bg-surface" aria-hidden="true" />
-                未作答
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span
-                  className="h-2.5 w-2.5 rounded-[3px] border-2 border-accent bg-surface"
-                  aria-hidden="true"
-                />
-                目前
-              </span>
-            </div>
-          )}
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted">
+            {showStatus && (
+              <>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-correct" aria-hidden="true" />
+                  答對
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-wrong" aria-hidden="true" />
+                  答錯
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-accent-soft ring-1 ring-accent/40" aria-hidden="true" />
+                  作答中
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full border border-line bg-surface" aria-hidden="true" />
+                  未作答
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    className="h-2.5 w-2.5 rounded-[3px] border-2 border-accent bg-surface"
+                    aria-hidden="true"
+                  />
+                  目前
+                </span>
+              </>
+            )}
+            <span className="inline-flex items-center gap-1.5">
+              <Star className="h-3 w-3 text-highlight" fill="currentColor" aria-hidden="true" />
+              已標記
+            </span>
+          </div>
         </>
       )}
     </Card>
