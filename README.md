@@ -2,7 +2,7 @@
 
 個人題庫練習網站。目標是把 JSON 題庫變成可跨裝置練習的網站，保留即時解析、標記與正確率統計。
 
-目前狀態：前端已部署到 GitHub Pages，Supabase Auth 與題庫資料層已接上；題庫列表、詳情、JSON 匯入、改名、刪除、練習流程與標記皆使用 Supabase。統計頁目前使用 mock 資料。P0 不開放公開註冊，帳號由站長建立。
+目前狀態：前端已部署到 GitHub Pages，Supabase Auth 與題庫資料層已接上；題庫列表、詳情、JSON 匯入、改名、刪除、練習流程、標記與統計皆使用 Supabase。P0 不開放公開註冊，帳號由站長建立。
 
 正式站：`https://victor-900603.github.io/quiz-dock/`
 
@@ -46,7 +46,7 @@ Supabase 專案、CLI、migration、Auth 與 RLS 設定請見 [`docs/setup.md`](
 ```text
 .github/workflows   GitHub Pages 部署 workflow
 src/components      共用介面元件
-src/data            mock 資料
+src/data            範例題庫資料
 src/features        頁面與功能模組
 src/lib             共用工具與 mock store
 src/types           型別定義
