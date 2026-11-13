@@ -209,7 +209,6 @@ describe('App', () => {
 
     await user.click(screen.getByRole('button', { name: /開啟題號列表/ }))
     await user.click(screen.getByRole('button', { name: '隱藏狀態' }))
-    expect(screen.queryByText('答對')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '第 1 題，已標記' })).toHaveAttribute(
       'aria-current',
       'step',
@@ -408,7 +407,6 @@ describe('App', () => {
       screen.getByRole('button', { name: '第 3 題，未作答，已標記' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '第 2 題，答對' })).toBeInTheDocument()
-    expect(screen.getByText('已標記')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '關閉題號列表' }))
     expect(screen.queryByRole('button', { name: '關閉題號列表' })).not.toBeInTheDocument()
 

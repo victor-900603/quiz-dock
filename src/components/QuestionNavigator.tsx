@@ -206,7 +206,7 @@ export function QuestionNavigator({
             <div
               role="group"
               aria-label="題目篩選"
-              className="mt-2 flex flex-wrap gap-1.5"
+              className="mt-2 flex flex-nowrap gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               {filterOptions.map((option) => {
                 const active = option === filter
@@ -220,14 +220,17 @@ export function QuestionNavigator({
                     aria-pressed={active}
                     aria-label={`${filterLabels[option]} ${count}`}
                     className={cn(
-                      'inline-flex min-h-11 items-center rounded-full border px-3 text-xs transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+                      'inline-flex min-h-9 shrink-0 items-center rounded-full border px-2.5 text-[11px] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
                       active
                         ? 'border-accent bg-accent-soft font-medium text-accent'
                         : 'border-line bg-paper text-muted hover:border-accent/50 hover:text-ink',
                     )}
                   >
-                    <span className="font-mono tabular-nums">
-                      {filterLabels[option]} {count}
+                    <span className="inline-flex items-center gap-1">
+                      {filterLabels[option]}
+                      <span className="hidden font-mono text-[10px] tabular-nums text-muted sm:inline">
+                        {count}
+                      </span>
                     </span>
                   </button>
                 )
