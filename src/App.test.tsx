@@ -418,6 +418,36 @@ describe('App', () => {
     expect(screen.getByText('下列哪一項屬於生產者？')).toBeInTheDocument()
   })
 
+  it('filters the practice navigator by marked questions', async () => {
+    const user = userEvent.setup()
+    renderApp('/practice/session-biology?setId=biology&mode=sequential')
+
+    expect(await screen.findByText('第 3 / 20 題')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /展開題號列表/ }))
+    const filterGroup = screen.getByRole('group', { name: '題目篩選' })
+    const markedChip = within(filterGroup).getByRole('button', { name: '已標記 3' })
+    expect(markedChip).toHaveAttribute('aria-pressed', 'false')
+
+    await user.click(markedChip)
+
+    expect(markedChip).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: '第 1 題，答對，已標記' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '第 3 題，未作答，已標記' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '第 5 題，未作答，已標記' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '第 2 題，答對' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '關閉題號列表' }))
+    await user.click(screen.getByRole('button', { name: /展開題號列表/ }))
+
+    const reopenedGroup = screen.getByRole('group', { name: '題目篩選' })
+    expect(within(reopenedGroup).getByRole('button', { name: '已標記 3' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    expect(screen.queryByRole('button', { name: '第 2 題，答對' })).not.toBeInTheDocument()
+  })
+
   it('allows changing an answer and updates the navigator status', async () => {
     const user = userEvent.setup()
     resetWithoutPractice()

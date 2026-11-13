@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import {
@@ -10,6 +10,14 @@ const items: QuestionNavigatorItem[] = [
   { id: 'q-1', number: 1, status: 'correct', marked: true },
   { id: 'q-2', number: 2, status: 'in-progress', marked: false },
   { id: 'q-3', number: 3, status: 'unanswered', marked: false },
+]
+
+const filterItems: QuestionNavigatorItem[] = [
+  { id: 'f-1', number: 1, status: 'correct', marked: true },
+  { id: 'f-2', number: 2, status: 'in-progress', marked: false },
+  { id: 'f-3', number: 3, status: 'unanswered', marked: false },
+  { id: 'f-4', number: 4, status: 'wrong', marked: true },
+  { id: 'f-5', number: 5, status: 'unanswered', marked: false },
 ]
 
 function renderNavigator(overrides: Partial<Parameters<typeof QuestionNavigator>[0]> = {}) {
@@ -122,5 +130,124 @@ describe('QuestionNavigator', () => {
     await user.keyboard('{Escape}')
 
     expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the inline navigator unchanged when filter props are omitted', () => {
+    renderNavigator()
+
+    expect(screen.queryByRole('group', { name: '題目篩選' })).not.toBeInTheDocument()
+  })
+
+  it('renders filter chips with counts and aria-pressed state', () => {
+    renderNavigator({
+      items: filterItems,
+      total: 5,
+      filter: 'marked',
+      onFilterChange: vi.fn(),
+    })
+
+    const group = screen.getByRole('group', { name: '題目篩選' })
+    const expectedChips = [
+      ['全部 5', 'false'],
+      ['已標記 2', 'true'],
+      ['未作答 3', 'false'],
+      ['答錯 1', 'false'],
+      ['答對 1', 'false'],
+    ] as const
+
+    for (const [name, pressed] of expectedChips) {
+      expect(within(group).getByRole('button', { name })).toHaveAttribute(
+        'aria-pressed',
+        pressed,
+      )
+    }
+  })
+
+  it('reports filter chip changes', async () => {
+    const user = userEvent.setup()
+    const onFilterChange = vi.fn()
+    renderNavigator({
+      items: filterItems,
+      total: 5,
+      filter: 'all',
+      onFilterChange,
+    })
+
+    await user.click(screen.getByRole('button', { name: '答錯 1' }))
+
+    expect(onFilterChange).toHaveBeenCalledWith('wrong')
+  })
+
+  it('shows only the questions that match each filter', () => {
+    const onFilterChange = vi.fn()
+    const { props, rerender } = renderNavigator({
+      items: filterItems,
+      total: 5,
+      filter: 'all',
+      onFilterChange,
+    })
+
+    function visibleQuestionLabels() {
+      return within(screen.getByRole('navigation', { name: '題號列表' }))
+        .getAllByRole('button')
+        .map((button) => button.getAttribute('aria-label'))
+    }
+
+    expect(visibleQuestionLabels()).toEqual([
+      '第 1 題，答對，已標記',
+      '第 2 題，作答中',
+      '第 3 題，未作答',
+      '第 4 題，答錯，已標記',
+      '第 5 題，未作答',
+    ])
+
+    const filterCases = [
+      ['marked', ['第 1 題，答對，已標記', '第 4 題，答錯，已標記']],
+      ['unanswered', ['第 2 題，作答中', '第 3 題，未作答', '第 5 題，未作答']],
+      ['wrong', ['第 4 題，答錯，已標記']],
+      ['correct', ['第 1 題，答對，已標記']],
+    ] as const
+
+    for (const [filter, expectedLabels] of filterCases) {
+      rerender(
+        <QuestionNavigator {...props} filter={filter} onFilterChange={onFilterChange} />,
+      )
+
+      expect(visibleQuestionLabels()).toEqual(expectedLabels)
+    }
+  })
+
+  it('jumps with the original question index after filtering', async () => {
+    const user = userEvent.setup()
+    const { props } = renderNavigator({
+      items: filterItems,
+      total: 5,
+      filter: 'marked',
+      onFilterChange: vi.fn(),
+    })
+
+    await user.click(screen.getByRole('button', { name: '第 4 題，答錯，已標記' }))
+
+    expect(props.onJump).toHaveBeenCalledWith(3)
+  })
+
+  it('shows an empty message and a reset button when no question matches', async () => {
+    const user = userEvent.setup()
+    const onFilterChange = vi.fn()
+    const unmarkedItems = filterItems.map((item) => ({ ...item, marked: false }))
+    renderNavigator({
+      items: unmarkedItems,
+      total: 5,
+      filter: 'marked',
+      onFilterChange,
+    })
+
+    const nav = screen.getByRole('navigation', { name: '題號列表' })
+    expect(within(nav).getByText('沒有符合條件的題目')).toBeInTheDocument()
+    expect(within(nav).queryByRole('button', { name: /^第 / })).not.toBeInTheDocument()
+
+    await user.click(within(nav).getByRole('button', { name: '顯示全部' }))
+
+    expect(onFilterChange).toHaveBeenCalledWith('all')
   })
 })

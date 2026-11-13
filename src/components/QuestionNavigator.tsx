@@ -12,6 +12,8 @@ export type QuestionNavigatorItem = {
   marked: boolean
 }
 
+export type QuestionNavigatorFilter = 'all' | 'marked' | 'unanswered' | 'wrong' | 'correct'
+
 type QuestionNavigatorProps = {
   items: QuestionNavigatorItem[]
   currentIndex: number
@@ -22,6 +24,62 @@ type QuestionNavigatorProps = {
   onJump: (index: number) => void
   onClose?: () => void
   variant?: 'inline' | 'dock'
+  filter?: QuestionNavigatorFilter
+  onFilterChange?: (filter: QuestionNavigatorFilter) => void
+}
+
+const filterOptions: QuestionNavigatorFilter[] = [
+  'all',
+  'marked',
+  'unanswered',
+  'wrong',
+  'correct',
+]
+
+const filterLabels: Record<QuestionNavigatorFilter, string> = {
+  all: '全部',
+  marked: '已標記',
+  unanswered: '未作答',
+  wrong: '答錯',
+  correct: '答對',
+}
+
+export function matchesQuestionFilter(
+  item: QuestionNavigatorItem,
+  filter: QuestionNavigatorFilter,
+): boolean {
+  switch (filter) {
+    case 'marked':
+      return item.marked
+    case 'unanswered':
+      return item.status === 'unanswered' || item.status === 'in-progress'
+    case 'wrong':
+      return item.status === 'wrong'
+    case 'correct':
+      return item.status === 'correct'
+    default:
+      return true
+  }
+}
+
+export function filterQuestionNavigatorItems(
+  items: QuestionNavigatorItem[],
+  filter: QuestionNavigatorFilter,
+): Array<{ item: QuestionNavigatorItem; index: number }> {
+  return items
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => matchesQuestionFilter(item, filter))
+}
+
+export function countQuestionNavigatorFilters(
+  items: QuestionNavigatorItem[],
+): Record<QuestionNavigatorFilter, number> {
+  return Object.fromEntries(
+    filterOptions.map((filter) => [
+      filter,
+      items.filter((item) => matchesQuestionFilter(item, filter)).length,
+    ]),
+  ) as Record<QuestionNavigatorFilter, number>
 }
 
 const statusLabels: Record<QuestionNavigatorStatus, string> = {
@@ -48,9 +106,13 @@ export function QuestionNavigator({
   onJump,
   onClose,
   variant = 'inline',
+  filter = 'all',
+  onFilterChange,
 }: QuestionNavigatorProps) {
   const [expanded, setExpanded] = useState(true)
   const dock = variant === 'dock'
+  const filterCounts = countQuestionNavigatorFilters(items)
+  const filteredItems = filterQuestionNavigatorItems(items, filter)
 
   function handleJump(index: number) {
     onJump(index)
@@ -140,54 +202,102 @@ export function QuestionNavigator({
 
       {(dock || expanded) && (
         <>
+          {onFilterChange && (
+            <div
+              role="group"
+              aria-label="題目篩選"
+              className="mt-2 flex flex-wrap gap-1.5"
+            >
+              {filterOptions.map((option) => {
+                const active = option === filter
+                const count = filterCounts[option]
+
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => onFilterChange(option)}
+                    aria-pressed={active}
+                    aria-label={`${filterLabels[option]} ${count}`}
+                    className={cn(
+                      'inline-flex min-h-11 items-center rounded-full border px-3 text-xs transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+                      active
+                        ? 'border-accent bg-accent-soft font-medium text-accent'
+                        : 'border-line bg-paper text-muted hover:border-accent/50 hover:text-ink',
+                    )}
+                  >
+                    <span className="font-mono tabular-nums">
+                      {filterLabels[option]} {count}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
           <nav
             id="question-navigator-grid"
             aria-label="題號列表"
             className={cn('mt-3 overflow-y-auto pr-1', dock ? 'max-h-[40vh]' : 'max-h-64')}
           >
-            <div
-              className={cn(
-                'grid gap-2',
-                dock ? 'grid-cols-6 sm:grid-cols-10 lg:grid-cols-12' : 'grid-cols-6 sm:grid-cols-10',
-              )}
-            >
-              {items.map((item, index) => {
-                const isCurrent = index === currentIndex
-                const baseLabel = showStatus
-                  ? `第 ${item.number} 題，${statusLabels[item.status]}`
-                  : `第 ${item.number} 題`
-                const label = item.marked ? `${baseLabel}，已標記` : baseLabel
-
-                return (
+            {filteredItems.length === 0 ? (
+              <div className="flex flex-col items-start gap-2 rounded-lg border border-dashed border-line bg-paper/60 px-3 py-4">
+                <p className="text-sm text-muted">沒有符合條件的題目</p>
+                {onFilterChange && (
                   <button
-                    key={item.id}
                     type="button"
-                    onClick={() => handleJump(index)}
-                    aria-current={isCurrent ? 'step' : undefined}
-                    aria-label={label}
-                    className={cn(
-                      'relative flex min-h-11 items-center justify-center rounded-md border font-mono text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
-                      showStatus
-                        ? statusClasses[item.status]
-                        : 'border-line bg-surface text-muted hover:border-accent/50 hover:text-ink',
-                      isCurrent &&
-                        (showStatus
-                          ? 'ring-2 ring-inset ring-accent'
-                          : 'border-accent bg-accent-soft font-semibold text-accent ring-2 ring-inset ring-accent'),
-                    )}
+                    onClick={() => onFilterChange('all')}
+                    className="inline-flex min-h-11 items-center rounded-full border border-line bg-surface px-3 text-xs font-medium text-ink transition-colors hover:border-accent/60 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                   >
-                    {String(item.number).padStart(2, '0')}
-                    {item.marked && (
-                      <Star
-                        className="pointer-events-none absolute right-0.5 top-0.5 h-3 w-3 text-highlight"
-                        fill="currentColor"
-                        aria-hidden="true"
-                      />
-                    )}
+                    顯示全部
                   </button>
-                )
-              })}
-            </div>
+                )}
+              </div>
+            ) : (
+              <div
+                className={cn(
+                  'grid gap-2',
+                  dock ? 'grid-cols-6 sm:grid-cols-10 lg:grid-cols-12' : 'grid-cols-6 sm:grid-cols-10',
+                )}
+              >
+                {filteredItems.map(({ item, index }) => {
+                  const isCurrent = index === currentIndex
+                  const baseLabel = showStatus
+                    ? `第 ${item.number} 題，${statusLabels[item.status]}`
+                    : `第 ${item.number} 題`
+                  const label = item.marked ? `${baseLabel}，已標記` : baseLabel
+
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleJump(index)}
+                      aria-current={isCurrent ? 'step' : undefined}
+                      aria-label={label}
+                      className={cn(
+                        'relative flex min-h-11 items-center justify-center rounded-md border font-mono text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+                        showStatus
+                          ? statusClasses[item.status]
+                          : 'border-line bg-surface text-muted hover:border-accent/50 hover:text-ink',
+                        isCurrent &&
+                          (showStatus
+                            ? 'ring-2 ring-inset ring-accent'
+                            : 'border-accent bg-accent-soft font-semibold text-accent ring-2 ring-inset ring-accent'),
+                      )}
+                    >
+                      {String(item.number).padStart(2, '0')}
+                      {item.marked && (
+                        <Star
+                          className="pointer-events-none absolute right-0.5 top-0.5 h-3 w-3 text-highlight"
+                          fill="currentColor"
+                          aria-hidden="true"
+                        />
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </nav>
 
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted">

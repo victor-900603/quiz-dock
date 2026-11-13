@@ -8,6 +8,7 @@ import { ProgressBar } from '../../components/ProgressBar'
 import { QuestionCard } from '../../components/QuestionCard'
 import {
   QuestionNavigator,
+  type QuestionNavigatorFilter,
   type QuestionNavigatorItem,
 } from '../../components/QuestionNavigator'
 import type { PracticeSessionDetail } from '../../types/quiz'
@@ -144,6 +145,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
     ),
   )
   const [showStatus, setShowStatus] = useState(true)
+  const [navigatorFilter, setNavigatorFilter] = useState<QuestionNavigatorFilter>('all')
   const [navigatorOpen, setNavigatorOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editSelected, setEditSelected] = useState<string[]>([])
@@ -598,6 +600,8 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
               total={total}
               showStatus={showStatus}
               onToggleStatus={() => setShowStatus((value) => !value)}
+              filter={navigatorFilter}
+              onFilterChange={setNavigatorFilter}
               onJump={handleJump}
               onClose={closeNavigator}
             />
