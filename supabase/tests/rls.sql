@@ -215,9 +215,51 @@ begin
   end;
 end $$;
 
+-- Tester cannot delete the owner's attempt. RLS filters the row out, so the
+-- delete affects zero rows instead of raising an error.
+do $$
+declare
+  v_count integer;
+begin
+  begin
+    delete from public.attempts
+    where id = '66666666-6666-6666-6666-666666666666';
+    get diagnostics v_count = row_count;
+    if v_count <> 0 then
+      raise exception 'tester deleted owner attempt';
+    end if;
+  exception when insufficient_privilege then
+    null;
+  end;
+end $$;
+
 -- Tester may mark a question that belongs to a public set.
 insert into public.question_marks (user_id, question_id)
 values (auth.uid(), '44444444-4444-4444-4444-444444444444');
+
+-- Owner may delete their own attempt. This is the reset path used when a
+-- practice session restarts.
+set local request.jwt.claims = '{"sub":"OWNER_UUID","role":"authenticated"}';
+
+do $$
+declare
+  v_count integer;
+begin
+  delete from public.attempts
+  where id = '66666666-6666-6666-6666-666666666666';
+  get diagnostics v_count = row_count;
+  if v_count <> 1 then
+    raise exception 'owner could not delete own attempt';
+  end if;
+
+  if exists (
+    select 1
+    from public.attempts
+    where id = '66666666-6666-6666-6666-666666666666'
+  ) then
+    raise exception 'owner attempt still exists after delete';
+  end if;
+end $$;
 
 -- Anonymous visitors may read public rows only.
 reset role;
