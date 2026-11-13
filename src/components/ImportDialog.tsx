@@ -4,11 +4,12 @@ import { Button } from './Button'
 import { Modal } from './Modal'
 import { cn } from '../lib/cn'
 import { parseImportPreview, type ImportPreview } from '../lib/importPreview'
+import { IMPORT_LIMITS, type ImportPayload } from '../schemas/import'
 
 type ImportDialogProps = {
   open: boolean
   onClose: () => void
-  onImport: (preview: ImportPreview) => void
+  onImport: (payload: ImportPayload) => Promise<void> | void
 }
 
 type Tab = 'file' | 'paste'
@@ -19,6 +20,7 @@ export function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
   const [fileName, setFileName] = useState('')
   const [preview, setPreview] = useState<ImportPreview | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   function reset() {
@@ -27,14 +29,16 @@ export function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
     setFileName('')
     setPreview(null)
     setError(null)
+    setSubmitting(false)
   }
 
   function handleClose() {
+    if (submitting) return
     reset()
     onClose()
   }
 
-  function applyText(value: string) {
+  function applyText(value: string, sourceName = '') {
     setText(value)
     if (!value.trim()) {
       setPreview(null)
@@ -42,15 +46,29 @@ export function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
       return
     }
 
-    const result = parseImportPreview(value)
+    if (new TextEncoder().encode(value).length > IMPORT_LIMITS.fileBytes) {
+      setPreview(null)
+      setError('檔案過大，請確認檔案小於 10MB。')
+      return
+    }
+
+    const result = parseImportPreview(value, sourceName)
     setPreview(result.preview)
     setError(result.error)
   }
 
   async function handleFile(file: File) {
     setFileName(file.name)
+
+    if (file.size > IMPORT_LIMITS.fileBytes) {
+      setText('')
+      setPreview(null)
+      setError('檔案過大，請確認檔案小於 10MB。')
+      return
+    }
+
     const content = await file.text()
-    applyText(content)
+    applyText(content, file.name)
   }
 
   function handleDrop(event: DragEvent<HTMLButtonElement>) {
@@ -59,10 +77,25 @@ export function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
     if (file) void handleFile(file)
   }
 
-  function handleImport() {
-    if (!preview) return
-    onImport(preview)
-    handleClose()
+  async function handleImport() {
+    if (!preview || submitting) return
+
+    setSubmitting(true)
+    setError(null)
+
+    try {
+      await onImport({
+        text,
+        fileName,
+        title: preview.title.trim() || '未命名題庫',
+      })
+      setSubmitting(false)
+      reset()
+      onClose()
+    } catch (importError) {
+      setSubmitting(false)
+      setError(importError instanceof Error ? importError.message : '匯入失敗，請稍後再試。')
+    }
   }
 
   return (
@@ -74,11 +107,15 @@ export function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
       className="max-w-2xl"
       footer={
         <>
-          <Button variant="secondary" onClick={handleClose}>
+          <Button variant="secondary" onClick={handleClose} disabled={submitting}>
             取消
           </Button>
-          <Button onClick={handleImport} disabled={!preview}>
-            開始匯入
+          <Button
+            onClick={() => void handleImport()}
+            disabled={!preview || submitting}
+            loading={submitting}
+          >
+            {submitting ? '匯入中...' : '開始匯入'}
           </Button>
         </>
       }
@@ -146,7 +183,10 @@ export function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
           <textarea
             id="import-json"
             value={text}
-            onChange={(event) => applyText(event.target.value)}
+            onChange={(event) => {
+              setFileName('')
+              applyText(event.target.value)
+            }}
             rows={8}
             placeholder='[{"question_number": 1, "topic": 1, "question": "...", "options": {...}, "correct_answers": ["A"], "explanation": "..."}]'
             className="mt-2 w-full resize-y rounded-lg border border-line bg-paper px-3 py-2.5 font-mono text-xs leading-6 text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
@@ -155,7 +195,7 @@ export function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
       )}
 
       {error && (
-        <p className="mt-4 rounded-lg border border-wrong/30 bg-wrong-soft px-3 py-2 text-sm text-wrong" role="alert">
+        <p className="mt-4 whitespace-pre-line rounded-lg border border-wrong/30 bg-wrong-soft px-3 py-2 text-sm text-wrong" role="alert">
           {error}
         </p>
       )}
@@ -207,7 +247,7 @@ export function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
           </div>
 
           <p className="mt-4 text-xs leading-5 text-muted">
-            目前為前端介面預覽，匯入後會建立一張示範題庫卡片，題目內容尚未寫入資料庫。
+            確認後會寫入資料庫，建立題庫與題目；相同內容的題庫不會重複匯入。
           </p>
         </div>
       )}

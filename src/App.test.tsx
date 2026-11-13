@@ -1,28 +1,48 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppRoutes } from './AppRoutes'
 import { mockQuestionsBySet } from './data/mock'
 import { TestAuthProvider } from './test/TestAuthProvider'
+import { getSharedFakeSupabase } from './test/fakeSupabase'
+
+vi.mock('./lib/supabase', async () => {
+  const { getSharedFakeSupabase } = await import('./test/fakeSupabase')
+  return { supabase: getSharedFakeSupabase() }
+})
 
 function renderApp(route = '/') {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  })
+
   return render(
-    <TestAuthProvider>
-      <MemoryRouter initialEntries={[route]}>
-        <AppRoutes />
-      </MemoryRouter>
-    </TestAuthProvider>,
+    <QueryClientProvider client={queryClient}>
+      <TestAuthProvider>
+        <MemoryRouter initialEntries={[route]}>
+          <AppRoutes />
+        </MemoryRouter>
+      </TestAuthProvider>
+    </QueryClientProvider>,
   )
 }
 
 describe('App', () => {
+  beforeEach(() => {
+    getSharedFakeSupabase().reset()
+  })
+
   it('renders the library and navigates between main pages', async () => {
     const user = userEvent.setup()
     renderApp('/')
 
     expect(await screen.findByRole('heading', { name: '我的題庫' })).toBeInTheDocument()
-    expect(screen.getAllByText('生物學基礎').length).toBeGreaterThan(0)
+    expect((await screen.findAllByText('生物學基礎')).length).toBeGreaterThan(0)
 
     await user.click(screen.getAllByRole('link', { name: '標記' })[0])
     expect(await screen.findByRole('heading', { name: '已標記題目' })).toBeInTheDocument()
@@ -44,6 +64,40 @@ describe('App', () => {
     expect(await screen.findByRole('heading', { name: '我的題庫' })).toBeInTheDocument()
   })
 
+  it('shows empty and error states for the library', async () => {
+    const user = userEvent.setup()
+    getSharedFakeSupabase().reset({ quiz_sets: [], questions: [] })
+
+    const empty = renderApp('/')
+    expect(await screen.findByText('還沒有題庫')).toBeInTheDocument()
+    empty.unmount()
+
+    getSharedFakeSupabase().reset()
+    getSharedFakeSupabase().failNextSelect('quiz_sets', { message: 'Failed to fetch' })
+    renderApp('/')
+
+    expect(
+      await screen.findByText('無法連線到伺服器，請檢查網路後再試一次。'),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '重新載入' }))
+    expect((await screen.findAllByText('生物學基礎')).length).toBeGreaterThan(0)
+  })
+
+  it('shows a load error for a set and retries', async () => {
+    const user = userEvent.setup()
+    getSharedFakeSupabase().failNextSelect('quiz_sets', {
+      message: 'row-level security',
+    })
+
+    renderApp('/sets/biology')
+
+    expect(
+      await screen.findByText('沒有權限執行此操作，請重新登入後再試一次。'),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '重新載入' }))
+    expect(await screen.findByRole('heading', { name: '生物學基礎' })).toBeInTheDocument()
+  })
+
   it('imports a pasted JSON set and shows the preview notice', async () => {
     const user = userEvent.setup()
     renderApp('/')
@@ -58,7 +112,12 @@ describe('App', () => {
           title: '測試題庫',
           description: '匯入測試',
           questions: [
-            { topic: '測試主題', question: '第一題', options: { A: '甲', B: '乙' }, correct_answers: ['A'] },
+            {
+              topic: '測試主題',
+              question: '第一題',
+              options: { A: '甲', B: '乙' },
+              correct_answers: ['A'],
+            },
           ],
         }),
       },
@@ -68,7 +127,7 @@ describe('App', () => {
     expect(within(dialog).getByText('測試主題 · 1')).toBeInTheDocument()
 
     await user.click(within(dialog).getByRole('button', { name: '開始匯入' }))
-    expect(await screen.findByText('已建立「測試題庫」示範題庫。')).toBeInTheDocument()
+    expect(await screen.findByText('已匯入「測試題庫」。')).toBeInTheDocument()
     expect(screen.getAllByText('測試題庫').length).toBeGreaterThan(0)
   })
 
@@ -244,8 +303,8 @@ describe('App', () => {
     const randomButton = screen.getByRole('button', { name: '隨機練習' })
     expect(randomButton).toHaveClass('whitespace-nowrap')
     expect(randomButton.parentElement).toHaveClass('grid', 'grid-cols-3', 'sm:flex-nowrap')
-    expect(screen.getAllByRole('link', { name: '繼續練習' })).toHaveLength(2)
-    expect(screen.getByRole('button', { name: '重新開始' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '依序練習' })).toBeDisabled()
+    expect(randomButton).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: '重新命名' }))
     const renameDialog = await screen.findByRole('dialog', { name: '重新命名題庫' })
@@ -317,19 +376,14 @@ describe('App', () => {
     )
   })
 
-  it('confirms mode switching from the detail page', async () => {
-    const user = userEvent.setup()
+  it('disables practice actions until the practice phase is connected', async () => {
     renderApp('/sets/biology')
 
-    await user.click(await screen.findByRole('button', { name: '隨機練習' }))
-    const dialog = await screen.findByRole('dialog', { name: '切換模式' })
-    await user.click(within(dialog).getByRole('button', { name: '切換模式' }))
-
-    expect((await screen.findAllByText('隨機模式')).length).toBeGreaterThan(0)
-    expect(screen.getByRole('button', { name: /展開題號列表/ })).toHaveAttribute(
-      'aria-label',
-      expect.stringContaining('已答 0 / 20'),
-    )
+    expect(await screen.findByRole('button', { name: '依序練習' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '隨機練習' })).toBeDisabled()
+    expect(
+      screen.getByText('練習功能將於下一階段開放；目前可先匯入與瀏覽題庫。'),
+    ).toBeInTheDocument()
   })
 
   it('validates login and hides signup', async () => {

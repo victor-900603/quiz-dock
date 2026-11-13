@@ -16,22 +16,131 @@ import { Modal } from '../../components/Modal'
 import { PageHeader } from '../../components/PageHeader'
 import { ProgressBar } from '../../components/ProgressBar'
 import { StatCard } from '../../components/StatCard'
-import { TopicBars } from '../../components/TopicBars'
+import { TopicCounts } from '../../components/TopicCounts'
 import { formatPercentValue } from '../../lib/format'
 import { useMockStore } from '../../lib/mockStore'
-import type { PracticeMode } from '../../types/quiz'
+import type { ActiveSession, PracticeMode } from '../../types/quiz'
+import { useDeleteSetMutation, useRenameSetMutation, useSetQuery } from './queries'
 
 export function SetDetailPage() {
   const { setId } = useParams()
   const navigate = useNavigate()
-  const { sets, marks, renameSet, removeSet } = useMockStore()
-  const set = sets.find((item) => item.id === setId)
+  const { marks, renameSet, removeSet } = useMockStore()
+  const setQuery = useSetQuery(setId)
+  const renameMutation = useRenameSetMutation()
+  const deleteMutation = useDeleteSetMutation()
   const [renameOpen, setRenameOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [pendingAction, setPendingAction] = useState<
     { type: 'mode'; mode: PracticeMode } | { type: 'restart' } | null
   >(null)
-  const [renameTitle, setRenameTitle] = useState(set?.title ?? '')
+  const [renameTitle, setRenameTitle] = useState('')
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  const set = setQuery.data?.set
+  const [activeSession] = useState<ActiveSession | undefined>(undefined)
+  const practiceHref = activeSession
+    ? `/practice/${activeSession.id}?setId=${set?.id}&mode=${activeSession.mode}&resume=1`
+    : `/practice/demo-session?setId=${set?.id}&mode=sequential`
+
+  function openRename() {
+    setRenameTitle(set?.title ?? '')
+    setActionError(null)
+    setRenameOpen(true)
+  }
+
+  function requestMode(mode: PracticeMode) {
+    if (!set) return
+
+    if (!activeSession) {
+      navigate(`/practice/demo-session?setId=${set.id}&mode=${mode}`)
+      return
+    }
+
+    if (activeSession.mode === mode) {
+      navigate(practiceHref)
+      return
+    }
+
+    setPendingAction({ type: 'mode', mode })
+  }
+
+  function requestRestart() {
+    if (!activeSession) return
+    setPendingAction({ type: 'restart' })
+  }
+
+  function handlePendingConfirm() {
+    if (!pendingAction || !set) return
+
+    const mode =
+      pendingAction.type === 'mode' ? pendingAction.mode : activeSession?.mode ?? 'sequential'
+    setPendingAction(null)
+    navigate(`/practice/demo-session?setId=${set.id}&mode=${mode}&restart=1`)
+  }
+
+  async function handleRename() {
+    if (!set) return
+
+    const nextTitle = renameTitle.trim()
+    if (!nextTitle) return
+
+    setActionError(null)
+
+    try {
+      await renameMutation.mutateAsync({ setId: set.id, title: nextTitle })
+      renameSet(set.id, nextTitle)
+      setRenameOpen(false)
+    } catch (error) {
+      setRenameOpen(false)
+      setActionError(
+        error instanceof Error ? error.message : '重新命名失敗，請稍後再試。',
+      )
+    }
+  }
+
+  async function handleDelete() {
+    if (!set) return
+
+    setActionError(null)
+
+    try {
+      await deleteMutation.mutateAsync(set.id)
+      removeSet(set.id)
+      navigate('/')
+    } catch (error) {
+      setDeleteOpen(false)
+      setActionError(error instanceof Error ? error.message : '刪除題庫失敗，請稍後再試。')
+    }
+  }
+
+  if (setQuery.isPending) {
+    return (
+      <Card className="p-6 text-sm text-muted" role="status">
+        載入題庫中...
+      </Card>
+    )
+  }
+
+  if (setQuery.isError) {
+    return (
+      <Card className="p-6" role="alert">
+        <p className="text-sm text-wrong">
+          {setQuery.error instanceof Error
+            ? setQuery.error.message
+            : '無法載入題庫，請稍後再試。'}
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => void setQuery.refetch()}>
+            重新載入
+          </Button>
+          <Link to="/" className={buttonStyles('secondary')}>
+            回題庫
+          </Link>
+        </div>
+      </Card>
+    )
+  }
 
   if (!set) {
     return (
@@ -48,48 +157,12 @@ export function SetDetailPage() {
   }
 
   const markedCount = marks.filter((mark) => mark.setId === set.id).length
-  const activeSession = set.activeSession
-  const practiceHref = activeSession
-    ? `/practice/${activeSession.id}?setId=${set.id}&mode=${activeSession.mode}&resume=1`
-    : `/practice/demo-session?setId=${set.id}&mode=sequential`
-
-  function openRename() {
-    setRenameTitle(set?.title ?? '')
-    setRenameOpen(true)
-  }
-
-  function requestMode(mode: PracticeMode) {
-    if (!activeSession) {
-      navigate(`/practice/demo-session?setId=${set!.id}&mode=${mode}`)
-      return
-    }
-
-    if (activeSession.mode === mode) {
-      navigate(practiceHref)
-      return
-    }
-
-    setPendingAction({ type: 'mode', mode })
-  }
-
-  function requestRestart() {
-    setPendingAction({ type: 'restart' })
-  }
-
-  function handlePendingConfirm() {
-    if (!pendingAction) return
-
-    const mode = pendingAction.type === 'mode' ? pendingAction.mode : activeSession?.mode ?? 'sequential'
-    setPendingAction(null)
-    navigate(`/practice/demo-session?setId=${set!.id}&mode=${mode}&restart=1`)
-  }
-
-  function handleRename() {
-    const nextTitle = renameTitle.trim()
-    if (!nextTitle) return
-    renameSet(set!.id, nextTitle)
-    setRenameOpen(false)
-  }
+  const answeredCount = activeSession?.answered ?? set.answeredCount
+  const accuracy = activeSession
+    ? activeSession.answered > 0
+      ? (activeSession.correct / activeSession.answered) * 100
+      : null
+    : set.accuracy
 
   return (
     <>
@@ -122,10 +195,12 @@ export function SetDetailPage() {
             ) : (
               <button
                 type="button"
+                disabled
+                title="練習功能將於下一階段開放"
                 onClick={() => requestMode('sequential')}
                 className={buttonStyles(
                   'primary',
-                  'whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm',
+                  'whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60',
                 )}
               >
                 <Play className="h-4 w-4" aria-hidden="true" />
@@ -134,10 +209,12 @@ export function SetDetailPage() {
             )}
             <button
               type="button"
+              disabled
+              title="練習功能將於下一階段開放"
               onClick={() => requestMode('random')}
               className={buttonStyles(
                 'secondary',
-                'whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm',
+                'whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60',
               )}
             >
               <Shuffle className="h-4 w-4" aria-hidden="true" />
@@ -160,12 +237,16 @@ export function SetDetailPage() {
         }
       />
 
+      <p className="mt-3 text-xs text-muted">
+        練習功能將於下一階段開放；目前可先匯入與瀏覽題庫。
+      </p>
+
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="題數" value={`${set.questionCount}`} hint={`${set.topicCount} 個主題`} />
         <StatCard
           label="正確率"
-          value={formatPercentValue(set.accuracy)}
-          hint={`已答 ${set.answeredCount} 題`}
+          value={formatPercentValue(accuracy)}
+          hint={`已答 ${answeredCount} 題`}
         />
         <StatCard label="標記" value={`${markedCount}`} hint="已標記題目" />
       </div>
@@ -173,7 +254,7 @@ export function SetDetailPage() {
       <Card className="mt-6 p-5 sm:p-6">
         <h2 className="font-serif text-xl text-ink">主題分布</h2>
         <div className="mt-5">
-          <TopicBars topics={set.topics} />
+          <TopicCounts topics={set.topics} />
         </div>
       </Card>
 
@@ -217,6 +298,11 @@ export function SetDetailPage() {
             刪除題庫
           </Button>
         </div>
+        {actionError && (
+          <p className="mt-3 text-sm text-wrong" role="alert">
+            {actionError}
+          </p>
+        )}
         <p className="mt-3 text-xs leading-5 text-muted">
           P0 不顯示完整題目列表，避免一次載入大量題目。
         </p>
@@ -224,15 +310,23 @@ export function SetDetailPage() {
 
       <Modal
         open={renameOpen}
-        onClose={() => setRenameOpen(false)}
+        onClose={() => {
+          if (!renameMutation.isPending) setRenameOpen(false)
+        }}
         title="重新命名題庫"
         description="修改後，列表與標記頁會同步顯示新名稱。"
         footer={
           <>
-            <Button variant="secondary" onClick={() => setRenameOpen(false)}>
+            <Button
+              variant="secondary"
+              onClick={() => setRenameOpen(false)}
+              disabled={renameMutation.isPending}
+            >
               取消
             </Button>
-            <Button onClick={handleRename}>儲存</Button>
+            <Button onClick={() => void handleRename()} loading={renameMutation.isPending}>
+              儲存
+            </Button>
           </>
         }
       >
@@ -261,11 +355,10 @@ export function SetDetailPage() {
         title="刪除題庫"
         description={`確定要刪除「${set.title}」嗎？題目、標記與相關統計會一併移除。`}
         confirmLabel="刪除"
+        confirmLoading={deleteMutation.isPending}
+        cancelDisabled={deleteMutation.isPending}
         onCancel={() => setDeleteOpen(false)}
-        onConfirm={() => {
-          removeSet(set.id)
-          navigate('/')
-        }}
+        onConfirm={() => void handleDelete()}
       />
     </>
   )

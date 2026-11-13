@@ -9,33 +9,28 @@ import { PageHeader } from '../../components/PageHeader'
 import { ProgressBar } from '../../components/ProgressBar'
 import { QuizSetCard } from '../../components/QuizSetCard'
 import { useMockStore } from '../../lib/mockStore'
-import type { ImportPreview } from '../../lib/importPreview'
-import type { QuizSet } from '../../types/quiz'
+import type { ImportPayload } from '../../schemas/import'
+import { useImportSetMutation, useSetsQuery } from './queries'
 
 export function LibraryPage() {
-  const { sets, marks, addSet } = useMockStore()
+  const { sets: mockSets, marks } = useMockStore()
+  const setsQuery = useSetsQuery()
+  const importMutation = useImportSetMutation()
   const [importOpen, setImportOpen] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+
+  const mockSetsById = new Map(mockSets.map((set) => [set.id, set]))
+  const sets = (setsQuery.data ?? []).map((set) => {
+    const activeSession = mockSetsById.get(set.id)?.activeSession
+    return activeSession ? { ...set, activeSession } : set
+  })
 
   const activeSet = sets.find((set) => set.activeSession)
   const activeSession = activeSet?.activeSession
 
-  function handleImport(preview: ImportPreview) {
-    const importedSet: QuizSet = {
-      id: `imported-${Date.now()}`,
-      title: preview.title || '未命名題庫',
-      description: preview.description || '由 JSON 匯入的題庫。',
-      questionCount: preview.questionCount,
-      topicCount: preview.topics.length,
-      accuracy: null,
-      answeredCount: 0,
-      lastPracticedLabel: null,
-      markedCount: 0,
-      topics: preview.topics.map((topic) => ({ name: topic.name, answered: 0, correct: 0 })),
-    }
-
-    addSet(importedSet)
-    setNotice(`已建立「${importedSet.title}」示範題庫。`)
+  async function handleImport(payload: ImportPayload) {
+    const result = await importMutation.mutateAsync(payload)
+    setNotice(`已匯入「${result.title}」。`)
   }
 
   return (
@@ -89,7 +84,26 @@ export function LibraryPage() {
         </Card>
       )}
 
-      {sets.length === 0 ? (
+      {setsQuery.isPending ? (
+        <Card className="p-6 text-sm text-muted" role="status">
+          載入題庫中...
+        </Card>
+      ) : setsQuery.isError ? (
+        <Card className="p-6" role="alert">
+          <p className="text-sm text-wrong">
+            {setsQuery.error instanceof Error
+              ? setsQuery.error.message
+              : '無法載入題庫，請稍後再試。'}
+          </p>
+          <Button
+            variant="secondary"
+            className="mt-4"
+            onClick={() => void setsQuery.refetch()}
+          >
+            重新載入
+          </Button>
+        </Card>
+      ) : sets.length === 0 ? (
         <EmptyState
           icon={<BookOpen className="h-8 w-8" aria-hidden="true" />}
           title="還沒有題庫"

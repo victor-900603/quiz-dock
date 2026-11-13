@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpen, Clock3, Star } from 'lucide-react'
+import { BookOpen, Clock3, Star } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { buttonStyles } from './Button'
 import { Card } from './Card'
@@ -11,11 +11,7 @@ type QuizSetCardProps = {
 }
 
 export function QuizSetCard({ set, markedCount }: QuizSetCardProps) {
-  const active = set.activeSession
-  const hasProgress = Boolean(active && active.answered > 0)
-  const practiceHref = active
-    ? `/practice/${active.id}?setId=${set.id}&mode=${active.mode}&resume=1`
-    : `/practice/demo-session?setId=${set.id}&mode=sequential`
+  const hasProgress = Boolean(set.activeSession && set.activeSession.answered > 0)
 
   return (
     <Card className="flex h-full flex-col p-5 sm:p-6">
@@ -65,10 +61,17 @@ export function QuizSetCard({ set, markedCount }: QuizSetCardProps) {
       </div>
 
       <div className="mt-auto flex items-center gap-2 pt-5">
-        <Link to={practiceHref} className={buttonStyles('primary', 'min-h-10 px-3')}>
-          {hasProgress ? '繼續練習' : '開始練習'}
-          <ArrowRight className="h-4 w-4" aria-hidden="true" />
-        </Link>
+        <button
+          type="button"
+          disabled
+          title="練習功能將於下一階段開放"
+          className={buttonStyles(
+            'primary',
+            'min-h-10 px-3 disabled:cursor-not-allowed disabled:opacity-60',
+          )}
+        >
+          練習（下一階段）
+        </button>
         <Link to={`/sets/${set.id}`} className={buttonStyles('secondary', 'min-h-10 px-3')}>
           詳情
         </Link>

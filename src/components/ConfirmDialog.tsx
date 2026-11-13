@@ -6,6 +6,9 @@ type ConfirmDialogProps = {
   title: string
   description: string
   confirmLabel?: string
+  confirmLoading?: boolean
+  confirmDisabled?: boolean
+  cancelDisabled?: boolean
   onCancel: () => void
   onConfirm: () => void
 }
@@ -15,6 +18,9 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel = '確認',
+  confirmLoading = false,
+  confirmDisabled = false,
+  cancelDisabled = false,
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
@@ -26,10 +32,15 @@ export function ConfirmDialog({
       description={description}
       footer={
         <>
-          <Button variant="secondary" onClick={onCancel}>
+          <Button variant="secondary" onClick={onCancel} disabled={cancelDisabled}>
             取消
           </Button>
-          <Button variant="danger" onClick={onConfirm}>
+          <Button
+            variant="danger"
+            onClick={onConfirm}
+            loading={confirmLoading}
+            disabled={confirmDisabled}
+          >
             {confirmLabel}
           </Button>
         </>
