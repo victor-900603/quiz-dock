@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { ChevronDown, ChevronUp, Eye, EyeOff, ListChecks, Star, X } from 'lucide-react'
 import { Card } from './Card'
 import { cn } from '../lib/cn'
@@ -110,6 +110,11 @@ export function QuestionNavigator({
   onFilterChange,
 }: QuestionNavigatorProps) {
   const [expanded, setExpanded] = useState(true)
+  const currentItemRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    currentItemRef.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [currentIndex, filter])
   const dock = variant === 'dock'
   const filterCounts = countQuestionNavigatorFilters(items)
   const filteredItems = filterQuestionNavigatorItems(items, filter)
@@ -273,6 +278,7 @@ export function QuestionNavigator({
                   return (
                     <button
                       key={item.id}
+                      ref={isCurrent ? currentItemRef : undefined}
                       type="button"
                       onClick={() => handleJump(index)}
                       aria-current={isCurrent ? 'step' : undefined}
