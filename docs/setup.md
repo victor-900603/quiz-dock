@@ -46,6 +46,10 @@ Migration 位於 `supabase/migrations/`，依序為：
 20261112051847_rls.sql
 20261112051850_rpc.sql
 20261112051853_views.sql
+20261112155712_single_practice_state.sql
+20261113031000_attempts_delete_policy.sql
+20261113032000_fix_start_practice_session.sql
+20261113033000_fix_submit_answer_ambiguous.sql
 ```
 
 推到遠端資料庫：
@@ -60,12 +64,16 @@ npm run db:push
 npx supabase migration list
 ```
 
-四支 migration 分別負責：
+各 migration 負責：
 
 - schema：資料表、索引、`updated_at` trigger。
 - rls：啟用 RLS、policies 與資料表 grants。
 - rpc：`start_practice_session`、`submit_answer`。
 - views：`v_set_stats`、`v_topic_stats`、`v_daily_activity`、`v_session_summary`。
+- single_practice_state：每位使用者每個題庫僅保留一筆練習狀態，作答可修改。
+- attempts_delete_policy：允許使用者刪除自己的作答紀錄，供重新開始練習時重設。
+- fix_start_practice_session：修正重新開始練習時的 session 判斷。
+- fix_submit_answer_ambiguous：修正 `submit_answer` 的欄位名稱歧義。
 
 ## 4. Auth 設定
 
@@ -122,15 +130,22 @@ npm run db:types
 
 1. 到 Authentication → Users 取得站長與測試帳號的 UUID。
 2. 將檔案中的 `OWNER_UUID`、`TESTER_UUID` 換成實際 UUID。
-3. 在 Supabase SQL Editor 貼上完整內容執行。
-4. 測試以 `begin;` 開始、`rollback;` 結束，不會留下測試資料。
+3. 在 Supabase SQL Editor 貼上完整內容執行，或使用 CLI：
+
+   ```bash
+   npx supabase db query --file supabase/tests/rls.sql --remote --yes
+   ```
+
+4. 測試以 `begin;` 開始、`rollback;` 結束，不會留下測試資料。執行後應將 UUID 占位符還原，避免把實際帳號寫進版控。
 
 測試會驗證：
 
 - 站長可讀取自己的私有與公開題庫。
+- 站長可更新並刪除自己的作答紀錄。
 - 測試帳號只看得到公開題庫與題目。
 - 測試帳號看不到站長的 session、attempt、mark。
 - 測試帳號不能寫入站長的私有題庫、session 或私有題目標記。
+- 測試帳號不能更新或刪除站長的作答紀錄。
 - 測試帳號可以標記公開題目。
 - 未登入的 anon 只能讀取公開題庫與題目。
 
