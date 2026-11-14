@@ -149,7 +149,43 @@ npm run db:types
 - 測試帳號可以標記公開題目。
 - 未登入的 anon 只能讀取公開題庫與題目。
 
-## 8. 常見問題
+## 8. PWA 驗證
+
+Service Worker 只在 production build 產生，且需要 HTTPS 或 `localhost`。本機驗證請執行：
+
+```bash
+npm run build
+npm run preview
+```
+
+### Manifest 與 Service Worker
+
+1. 開啟 DevTools → Application → Manifest，確認名稱、主題色與圖示皆正確。
+2. 確認 `start_url` 與 `scope` 指向目前的 base path；部署在專案站時應包含 `/quiz-dock/`。
+3. 到 Application → Service Workers，確認狀態為 activated and running。
+4. 若修改圖示，先執行 `npm run pwa:assets` 再重新建置。
+
+### 離線
+
+1. 先完整載入一次頁面，讓 precache 完成。
+2. 將 DevTools 的 Network 設為 Offline，重新整理頁面。
+3. App 外殼應可開啟；直接重新整理 `/quiz-dock/stats` 等深層連結也應顯示 SPA。
+4. Supabase 資料請求不在快取範圍，離線時會顯示網路錯誤，這是預期行為。
+
+### 更新提示
+
+1. 完成一次建置並載入頁面。
+2. 修改任一畫面文字，重新執行 `npm run build`。
+3. 重新整理頁面，畫面下方應出現「有新版本可用」。
+4. 選擇「重新載入」後確認看到新版本；選擇「稍後」則維持目前版本。
+
+### 安裝
+
+- Android Chrome 或桌面 Chrome／Edge：設定頁應顯示「安裝應用程式」，點選後依瀏覽器提示完成安裝。
+- iOS Safari：設定頁顯示「加入主畫面」說明，從分享選單加入後，以主畫面圖示啟動應為獨立視窗。
+- 已安裝並以 standalone 模式開啟時，設定頁應顯示「已安裝 QuizDock」。
+
+## 9. 常見問題
 
 ### `supabase link` 失敗
 
