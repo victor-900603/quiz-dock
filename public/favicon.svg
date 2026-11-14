@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="QuizDock">
+  <rect width="512" height="512" fill="#f6f1e7" />
+  <path
+    d="M256 168C224 140 168 128 112 136V360C168 352 224 364 256 392C288 364 344 352 400 360V136C344 128 288 140 256 168Z"
+    fill="#fffdf8"
+    stroke="#1f5e4a"
+    stroke-width="22"
+    stroke-linejoin="round"
+  />
+  <path d="M256 168V392" stroke="#1f5e4a" stroke-width="18" stroke-linecap="round" />
+  <path
+    d="M144 184C180 180 212 184 232 196"
+    fill="none"
+    stroke="#d9a441"
+    stroke-width="14"
+    stroke-linecap="round"
+  />
+  <path
+    d="M368 184C332 180 300 184 280 196"
+    fill="none"
+    stroke="#d9a441"
+    stroke-width="14"
+    stroke-linecap="round"
+  />
+  <path d="M144 424H368" stroke="#1f5e4a" stroke-width="20" stroke-linecap="round" />
+</svg>

@@ -2,6 +2,7 @@ import { BarChart3, BookOpen, Library, Settings, Star, type LucideIcon } from 'l
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { cn } from '../lib/cn'
 import { useAuth } from '../features/auth/AuthContext'
+import { OfflineNotice } from '../pwa/OfflineNotice'
 
 type NavItem = {
   to: string
@@ -126,6 +127,8 @@ export function AppShell() {
       <SideNav />
 
       <div className="lg:pl-60">
+        <OfflineNotice />
+
         {!isPractice && (
           <header className="sticky top-0 z-20 border-b border-line bg-paper lg:hidden">
             <div className="flex h-16 items-center justify-between gap-3 px-4">
