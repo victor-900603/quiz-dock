@@ -73,7 +73,7 @@ export function QuestionCard({
         {showMark && <MarkButton marked={marked} onToggle={onToggleMark} />}
       </div>
 
-      <h2 className="mt-5 font-serif text-lg leading-[1.7] text-ink sm:text-xl">{question.prompt}</h2>
+      <h2 className="reading-prompt mt-4 font-serif text-ink">{question.prompt}</h2>
       {multi && <p className="mt-2 text-sm text-muted">選出所有正確答案</p>}
 
       <div

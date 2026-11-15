@@ -18,7 +18,7 @@ export function ExplanationPanel({ correctAnswers, explanation }: ExplanationPan
           </span>
         ))}
       </div>
-      <p className="mt-3 whitespace-pre-line text-sm leading-7 text-ink">
+      <p className="reading-explanation mt-3 whitespace-pre-line text-ink">
         {explanation || '本題沒有解析'}
       </p>
     </section>

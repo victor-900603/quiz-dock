@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SettingsPage } from './SettingsPage'
+import { readingSizeStorageKey, resetReadingSize } from './readingScale'
 
 const mocks = vi.hoisted(() => ({
   install: {
@@ -40,6 +41,7 @@ function renderSettings() {
 
 describe('SettingsPage', () => {
   beforeEach(() => {
+    resetReadingSize()
     mocks.install = {
       canInstall: false,
       installed: false,
@@ -96,5 +98,19 @@ describe('SettingsPage', () => {
 
     expect(screen.getByText('victor@example.com')).toBeInTheDocument()
     expect(screen.getByText('QuizDock 0.1.0')).toBeInTheDocument()
+  })
+
+  it('changes the reading size from the settings card', async () => {
+    const user = userEvent.setup()
+    renderSettings()
+
+    expect(screen.getByRole('heading', { name: '閱讀' })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: '標準' })).toBeChecked()
+
+    await user.click(screen.getByRole('radio', { name: '大' }))
+
+    expect(screen.getByRole('radio', { name: '大' })).toBeChecked()
+    expect(localStorage.getItem(readingSizeStorageKey)).toBe('large')
+    expect(document.documentElement.dataset.readingSize).toBe('large')
   })
 })

@@ -7,6 +7,7 @@ import { Card } from '../../components/Card'
 import { PageHeader } from '../../components/PageHeader'
 import { useInstallPrompt } from '../../pwa/useInstallPrompt'
 import { useAuth } from '../auth/AuthContext'
+import { ReadingScaleOptions } from './ReadingScaleControl'
 
 function InstallCard() {
   const { canInstall, installed, isIos, promptInstall } = useInstallPrompt()
@@ -62,7 +63,7 @@ export function SettingsPage() {
       <PageHeader
         eyebrow="帳號"
         title="設定"
-        description="管理登入狀態、目前版本與安裝。"
+        description="管理登入狀態、閱讀字級、版本與安裝。"
       />
 
       <Card className="p-5 sm:p-6">
@@ -81,6 +82,14 @@ export function SettingsPage() {
           <LogOut className="h-4 w-4" aria-hidden="true" />
           登出
         </Button>
+      </Card>
+
+      <Card className="mt-4 p-5 sm:p-6">
+        <h2 className="font-serif text-xl text-ink">閱讀</h2>
+        <p className="mt-2 text-xs leading-6 text-muted">
+          調整題幹、選項與解析的字級，設定只儲存在這台裝置。
+        </p>
+        <ReadingScaleOptions className="mt-4" />
       </Card>
 
       <Card className="mt-4 p-5 sm:p-6">

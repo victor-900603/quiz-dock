@@ -54,7 +54,7 @@ export function OptionButton({
       >
         {option.key}
       </span>
-      <span className="min-w-0 flex-1 text-sm leading-6 text-ink">{option.text}</span>
+      <span className="reading-option min-w-0 flex-1 text-ink">{option.text}</span>
       {isCorrect && <Check className="h-4 w-4 shrink-0 text-correct" aria-hidden="true" />}
       {isWrong && <X className="h-4 w-4 shrink-0 text-wrong" aria-hidden="true" />}
     </button>

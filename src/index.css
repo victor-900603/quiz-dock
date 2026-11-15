@@ -40,6 +40,22 @@
 }
 
 @layer base {
+  :root {
+    --reading-scale: 1;
+  }
+
+  html[data-reading-size="small"] {
+    --reading-scale: 0.9375;
+  }
+
+  html[data-reading-size="large"] {
+    --reading-scale: 1.125;
+  }
+
+  html[data-reading-size="xlarge"] {
+    --reading-scale: 1.25;
+  }
+
   html {
     background-color: var(--color-paper);
     color: var(--color-ink);
@@ -74,6 +90,29 @@
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .reading-prompt {
+    font-size: calc(1.125rem * var(--reading-scale));
+    line-height: 1.7;
+  }
+
+  .reading-option {
+    font-size: calc(0.875rem * var(--reading-scale));
+    line-height: 1.75;
+  }
+
+  .reading-explanation {
+    font-size: calc(0.875rem * var(--reading-scale));
+    line-height: 2;
+  }
+
+  @media (min-width: 40rem) {
+    .reading-prompt {
+      font-size: calc(1.25rem * var(--reading-scale));
     }
   }
 }
