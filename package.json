@@ -13,6 +13,7 @@
     "test:coverage": "vitest run --coverage",
     "pwa:assets": "pwa-assets-generator",
     "db:push": "supabase db push --remote",
+    "db:lint": "supabase db lint --remote",
     "db:types": "supabase gen types typescript --remote > src/types/database.ts"
   },
   "repository": {
