@@ -51,7 +51,7 @@ src/main.tsx
 | 模組 | 責任 |
 | --- | --- |
 | `auth` | Email 密碼登入、登出、session 狀態 |
-| `library` | 題庫列表、詳情、匯入、匯出、增量更新、重新命名、刪除 |
+| `library` | 題庫列表、詳情、題目瀏覽與搜尋、匯入、匯出、增量更新、重新命名、刪除 |
 | `practice` | 開始練習、作答、修改答案、練習摘要 |
 | `marks` | 標記題目、取消標記、標記列表 |
 | `stats` | 題庫、主題、每日活動與場次統計 |
@@ -132,6 +132,13 @@ src/main.tsx
 4. 使用者確認後，`syncQuizSet` 更新題庫說明、主題標籤與來源雜湊（不改標題），刪除未出現的題號，再以 `(set_id, question_number)` upsert 其餘題目。
 5. 最後呼叫 RPC `sync_practice_session` 重建練習順序，重算既有作答的正確性與 session 計數。
 6. 完成後失效所有 query，因為題目、作答、標記與統計都可能改變。
+
+### 題目瀏覽
+
+1. `SetDetailPage` 直接使用 `useSetQuery` 已載入的題庫詳情，不新增查詢。
+2. `QuestionBrowser` 以題幹、選項、解析與題號過濾，並可依主題篩選；純數字輸入會比對題號。
+3. 過濾使用 `useDeferredValue` 延後計算，每次顯示 20 題，按「載入更多」追加，變更關鍵字或主題時重設。
+4. 每題以原生 `<details>` 展開選項、正確答案與解析；標記狀態唯讀顯示。
 
 ### 練習
 
@@ -232,6 +239,7 @@ Workbox 使用 `generateSW` 模式：
 - PWA 測試：更新狀態、安裝事件、裝置判斷、離線狀態、更新提示與設定頁安裝卡片。
 - 整合測試：以 `fakeSupabase` 模擬資料庫，透過 Testing Library 操作完整頁面流程。
 - 匯出與更新：驗證匯出檔可回匯、題號差異分類、作答正確性重算與移除題目後的資料清理。
+- 題目瀏覽：驗證每批 20 題、載入更多、題幹／選項／解析／題號搜尋、主題篩選與展開內容。
 - RLS smoke test：`supabase/tests/rls.sql` 手動對遠端資料庫執行，驗證跨帳號隔離。
 - 覆蓋率門檻：statements、branches、functions、lines 皆為 80%。
 
