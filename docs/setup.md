@@ -50,6 +50,7 @@ Migration 位於 `supabase/migrations/`，依序為：
 20261113031000_attempts_delete_policy.sql
 20261113032000_fix_start_practice_session.sql
 20261113033000_fix_submit_answer_ambiguous.sql
+20261115090000_question_number_identity.sql
 ```
 
 推到遠端資料庫：
@@ -61,7 +62,13 @@ npm run db:push
 確認套用狀態：
 
 ```bash
-npx supabase migration list
+npx supabase migration list --remote
+```
+
+檢查遠端資料庫的函式與結構：
+
+```bash
+npm run db:lint
 ```
 
 各 migration 負責：
@@ -74,6 +81,7 @@ npx supabase migration list
 - attempts_delete_policy：允許使用者刪除自己的作答紀錄，供重新開始練習時重設。
 - fix_start_practice_session：修正重新開始練習時的 session 判斷。
 - fix_submit_answer_ambiguous：修正 `submit_answer` 的欄位名稱歧義。
+- question_number_identity：題號改為非空且在題庫內唯一，新增 `sync_practice_session` 以重整練習進度。
 
 ## 4. Auth 設定
 
@@ -197,7 +205,7 @@ npm run preview
 
 ### `db:types` 沒有輸出
 
-`db:types` 使用 `--linked`，必須先完成 `supabase link`。輸出檔 `src/types/database.ts` 應一併提交。
+`db:types` 使用 `--remote`，必須先完成 `supabase link`。輸出檔 `src/types/database.ts` 應一併提交。
 
 ### GitHub Actions 建置成功但網站沒有資料
 

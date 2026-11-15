@@ -2,7 +2,7 @@
 
 個人題庫練習網站。把 JSON 題庫變成可跨裝置練習的網站，提供即時解析、標記與正確率統計，並可安裝為 PWA。
 
-目前狀態：P0 已完成。前端部署於 GitHub Pages，登入、題庫列表、題庫詳情、JSON 匯入、重新命名、刪除、練習流程、作答紀錄、標記與統計全部使用 Supabase。正式站不含 mock 資料；測試使用獨立的 fake Supabase 與題庫 fixture。P0 不開放公開註冊，帳號由站長建立。
+目前狀態：P0 已完成。前端部署於 GitHub Pages，登入、題庫列表、題庫詳情、JSON 匯入、重新命名、刪除、練習流程、作答紀錄、標記與統計全部使用 Supabase。題庫可匯出為 JSON，也能以題號為身分上傳新版內容，保留未變動題目的練習進度。正式站不含 mock 資料；測試使用獨立的 fake Supabase 與題庫 fixture。P0 不開放公開註冊，帳號由站長建立。
 
 正式站：`https://victor-900603.github.io/quiz-dock/`
 
@@ -24,6 +24,7 @@ npm run test           # Vitest
 npm run test:coverage  # 測試覆蓋率
 npm run pwa:assets     # 由 favicon.svg 重新產生 PWA 圖示
 npm run db:push        # 套用 Supabase migration
+npm run db:lint        # 檢查遠端資料庫函式與結構
 npm run db:types       # 產生 Supabase 資料庫型別
 ```
 
@@ -57,6 +58,7 @@ Service Worker 只在 production build 產生。本機驗證請執行 `npm run b
 
 - [`docs/setup.md`](docs/setup.md)：Supabase 專案、migration、Auth、環境變數與 RLS smoke test。
 - [`docs/database.md`](docs/database.md)：資料表、view、RPC、RLS 與 migration 順序。
+- [`docs/import-format.md`](docs/import-format.md)：JSON 匯入格式、欄位規則、錯誤碼、匯出與更新行為。
 - [`docs/architecture.md`](docs/architecture.md)：前端分層、路由、資料流、測試與部署。
 
 ## 目錄

@@ -51,7 +51,7 @@ src/main.tsx
 | 模組 | 責任 |
 | --- | --- |
 | `auth` | Email 密碼登入、登出、session 狀態 |
-| `library` | 題庫列表、詳情、匯入、重新命名、刪除 |
+| `library` | 題庫列表、詳情、匯入、匯出、增量更新、重新命名、刪除 |
 | `practice` | 開始練習、作答、修改答案、練習摘要 |
 | `marks` | 標記題目、取消標記、標記列表 |
 | `stats` | 題庫、主題、每日活動與場次統計 |
@@ -66,10 +66,12 @@ src/main.tsx
 - `errors.ts`：將 Supabase 錯誤轉成一致的中文訊息。
 - `router.ts`：依 GitHub Pages 的 base path 計算 router basename。
 - `dates.ts`、`format.ts`、`cn.ts`：日期、格式化與 class 合併工具。
+- `download.ts`：以 Blob 與暫存連結下載文字檔。
+- `importPreview.ts`：匯入前的寬鬆預覽解析。
 
 ### `src/components`
 
-跨頁面重用的介面元件，例如 `AppShell`、`Button`、`Card`、`Modal`、`QuestionCard`、`QuestionNavigator`、`StatCard`。
+跨頁面重用的介面元件，例如 `AppShell`、`Button`、`Card`、`Modal`、`QuestionCard`、`QuestionNavigator`、`StatCard`。`ImportDialog` 與 `SyncDialog` 共用 `JsonSourcePicker` 處理檔案上傳與貼上 JSON。
 
 ### `src/pwa`
 
@@ -121,6 +123,15 @@ src/main.tsx
 4. `importQuizSet` 先檢查重複來源，建立題庫後以每批 200 筆 upsert 題目。
 5. 匯入失敗時刪除剛建立的題庫，避免留下半成品。
 6. mutation 成功後失效 `library` 相關 query。
+
+### 匯出與更新題庫
+
+1. `SetDetailPage` 的「匯出 JSON」呼叫 `exportQuizSet`，分頁讀取題庫與題目後組成與匯入相同的信封格式，再由 `downloadTextFile` 下載。
+2. 「更新題庫」開啟 `SyncDialog`；上傳或貼上 JSON 後，經短暫防抖呼叫 `previewQuizSetSync`。
+3. `prepareSync` 以 `normalizeImport` 驗證內容，讀取現有題號與內容雜湊，產生新增、修改、順序調整、移除與未變更清單，並統計受影響的作答與標記數量。
+4. 使用者確認後，`syncQuizSet` 更新題庫說明、主題標籤與來源雜湊（不改標題），刪除未出現的題號，再以 `(set_id, question_number)` upsert 其餘題目。
+5. 最後呼叫 RPC `sync_practice_session` 重建練習順序，重算既有作答的正確性與 session 計數。
+6. 完成後失效所有 query，因為題目、作答、標記與統計都可能改變。
 
 ### 練習
 
@@ -220,6 +231,7 @@ Workbox 使用 `generateSW` 模式：
 - 單元測試：服務層的資料轉換、錯誤處理、日期與格式化工具。
 - PWA 測試：更新狀態、安裝事件、裝置判斷、離線狀態、更新提示與設定頁安裝卡片。
 - 整合測試：以 `fakeSupabase` 模擬資料庫，透過 Testing Library 操作完整頁面流程。
+- 匯出與更新：驗證匯出檔可回匯、題號差異分類、作答正確性重算與移除題目後的資料清理。
 - RLS smoke test：`supabase/tests/rls.sql` 手動對遠端資料庫執行，驗證跨帳號隔離。
 - 覆蓋率門檻：statements、branches、functions、lines 皆為 80%。
 

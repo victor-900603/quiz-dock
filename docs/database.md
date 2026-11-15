@@ -31,7 +31,7 @@ QuizDock 的資料層位於 Supabase PostgreSQL。所有使用者資料以 `auth
 | `id` | `uuid` | 主鍵 |
 | `set_id` | `uuid` | 所屬題庫，參照 `quiz_sets(id)` |
 | `owner_id` | `uuid` | 擁有者，參照 `auth.users(id)` |
-| `question_number` | `integer` | 原始題號 |
+| `question_number` | `integer` | 題號，不可為空；更新題庫時作為題目身分 |
 | `topic` | `text` | 主題代碼 |
 | `question` | `text` | 題目內容，不可空白 |
 | `options` | `jsonb` | 選項陣列，元素為 `{ key, text }` |
@@ -41,7 +41,7 @@ QuizDock 的資料層位於 Supabase PostgreSQL。所有使用者資料以 `auth
 | `sort_order` | `integer` | 排序 |
 | `created_at` | `timestamptz` | 建立時間 |
 
-唯一鍵：`(set_id, content_hash)`。索引：`(set_id, sort_order)`、`owner_id`。
+唯一鍵：`(set_id, content_hash)`、`(set_id, question_number)`。索引：`(set_id, sort_order)`、`owner_id`。
 
 ### `public.practice_sessions`
 
@@ -135,7 +135,7 @@ questions
 - `anon`：`select` `quiz_sets`、`questions`。
 - `authenticated`：`quiz_sets`、`questions`、`practice_sessions`、`attempts`、`question_marks` 的 `select`、`insert`、`update`、`delete`，實際可用操作仍受 RLS 限制。
 - 統計 view：`authenticated` 可 `select`。
-- RPC：`authenticated` 可執行 `start_practice_session`、`submit_answer`。
+- RPC：`authenticated` 可執行 `start_practice_session`、`submit_answer`、`sync_practice_session`。
 
 ## RPC
 
@@ -154,6 +154,14 @@ questions
 - 首次作答新增 attempt；再次作答更新 selected、is_correct 與 updated_at。
 - 重新計算 answered_count、correct_count 與 session 狀態。
 - 回傳是否正確、正確答案、解析、是否已作答、是否更新、session 狀態、目前索引與計數。
+
+### `public.sync_practice_session(p_set_id uuid)`
+
+- `security invoker`，以呼叫者身分執行。
+- 驗證使用者已登入，並鎖定該使用者在此題庫的 session；沒有 session 時回傳 `null`。
+- 保留仍存在題目的原有順序，新題依 `sort_order` 附加到最後。
+- 重算該 session 所有 attempts 的 `is_correct`，並更新 answered_count、correct_count、current_index、total_questions、status 與 completed_at。
+- 供「更新題庫」在題目增刪改之後重整練習進度。
 
 ## 統計 View
 
@@ -177,6 +185,7 @@ questions
 20261113031000_attempts_delete_policy.sql 允許刪除自己的 attempts
 20261113032000_fix_start_practice_session.sql 修正重新開始流程
 20261113033000_fix_submit_answer_ambiguous.sql 修正 RPC 欄位歧義
+20261115090000_question_number_identity.sql 題號非空與唯一、練習進度重整 RPC
 ```
 
 已套用的 migration 不直接修改；修正請新增 migration。
