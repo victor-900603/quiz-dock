@@ -13,7 +13,9 @@ import {
 } from '../../components/QuestionNavigator'
 import type { PracticeSessionDetail } from '../../types/quiz'
 import { useMarksQuery, useToggleMarkMutation } from '../marks/queries'
+import { ReadingScaleButton, ReadingScaleDialog } from '../settings/ReadingScaleControl'
 import { isMultiAnswer } from './evaluate'
+import { PracticeHeader } from './PracticeHeader'
 import { usePracticeSessionQuery, useSubmitAnswerMutation } from './queries'
 import {
   findNextUnanswered,
@@ -147,6 +149,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
   const [showStatus, setShowStatus] = useState(true)
   const [navigatorFilter, setNavigatorFilter] = useState<QuestionNavigatorFilter>('all')
   const [navigatorOpen, setNavigatorOpen] = useState(false)
+  const [readingScaleOpen, setReadingScaleOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editSelected, setEditSelected] = useState<string[]>([])
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -160,6 +163,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
   const [lastAnsweredIndex, setLastAnsweredIndex] = useState<number | null>(null)
   const questionStartedAt = useRef(Date.now())
   const questionCardRef = useRef<HTMLDivElement>(null)
+  const lastQuestionIndex = useRef(index)
 
   useEffect(() => {
     if (!navigatorOpen) return
@@ -202,6 +206,15 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
     setSubmitError(null)
     setUpdateNotice(null)
     questionStartedAt.current = Date.now()
+
+    if (lastQuestionIndex.current === index) return
+    lastQuestionIndex.current = index
+
+    const reduceMotion =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    window.scrollTo?.({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' })
   }, [index, question?.id])
 
   function toggleOption(key: string) {
@@ -386,6 +399,8 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
         return
       }
 
+      if (readingScaleOpen) return
+
       if (event.key >= '1' && event.key <= '9') {
         const option = question?.options[Number(event.key) - 1]
         if (option && (!submitted || editing)) {
@@ -430,23 +445,16 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-30 border-b border-line bg-paper lg:hidden">
-        <div className="flex h-16 items-center gap-2 px-4 sm:px-6">
-          <Link
-            to={`/sets/${set.id}`}
-            aria-label="返回題庫"
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
-          >
-            <ArrowLeft className="h-5 w-5" aria-hidden="true" />
-          </Link>
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-serif text-base leading-tight text-ink">{set.title}</p>
-            <p className="mt-0.5 text-[11px] text-muted">
-              {mode === 'random' ? '隨機模式' : '依序模式'}
-            </p>
-          </div>
-        </div>
-      </header>
+      <PracticeHeader
+        setId={set.id}
+        title={set.title}
+        mode={mode}
+        index={index}
+        total={total}
+        answered={answeredCount}
+        correct={correctCount}
+        onOpenReadingScale={() => setReadingScaleOpen(true)}
+      />
 
       <div className="mb-6 hidden items-center justify-between gap-3 lg:flex">
         <Link
@@ -471,26 +479,29 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
         </div>
       </div>
 
-      <div className="mb-5">
+      <div className="mb-5 hidden lg:block">
         <div className="hidden flex-wrap items-center justify-between gap-2 lg:flex">
           <h1 className="font-serif text-2xl text-ink">{set.title}</h1>
-          {!navigatorOpen && (
-            <button
-              type="button"
-              onClick={openNavigator}
-              onKeyDown={(event) => event.stopPropagation()}
-              aria-expanded={false}
-              aria-controls="question-navigator-panel"
-              aria-label={`開啟題號列表，已答 ${answeredCount} / ${total} 題，答對 ${correctCount} 題`}
-              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-surface px-3 text-sm font-medium text-ink shadow-card transition-colors hover:border-accent/60 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-            >
-              <ListChecks className="h-4 w-4 text-accent" aria-hidden="true" />
-              <span>題號</span>
-              <span className="font-mono text-xs font-normal text-muted">
-                {answeredCount}/{total}
-              </span>
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            <ReadingScaleButton onClick={() => setReadingScaleOpen(true)} />
+            {!navigatorOpen && (
+              <button
+                type="button"
+                onClick={openNavigator}
+                onKeyDown={(event) => event.stopPropagation()}
+                aria-expanded={false}
+                aria-controls="question-navigator-panel"
+                aria-label={`開啟題號列表，已答 ${answeredCount} / ${total} 題，答對 ${correctCount} 題`}
+                className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-surface px-3 text-sm font-medium text-ink shadow-card transition-colors hover:border-accent/60 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              >
+                <ListChecks className="h-4 w-4 text-accent" aria-hidden="true" />
+                <span>題號</span>
+                <span className="font-mono text-xs font-normal text-muted">
+                  {answeredCount}/{total}
+                </span>
+              </button>
+            )}
+          </div>
         </div>
         <div className="lg:mt-3">
           <ProgressBar
@@ -616,6 +627,11 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
           </div>
         </div>
       )}
+
+      <ReadingScaleDialog
+        open={readingScaleOpen}
+        onClose={() => setReadingScaleOpen(false)}
+      />
     </>
   )
 }

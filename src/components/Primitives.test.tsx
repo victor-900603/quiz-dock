@@ -50,6 +50,18 @@ describe('ProgressBar', () => {
     expect(screen.getByText('自訂')).toBeInTheDocument()
     expect(screen.getByText('0%')).toBeInTheDocument()
   })
+
+  it('hides the text in compact mode', () => {
+    render(<ProgressBar answered={2} total={5} compact />)
+
+    expect(screen.queryByText('第 3 / 5 題')).not.toBeInTheDocument()
+    expect(screen.queryByText('40%')).not.toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-label', '答題進度')
+    expect(screen.getByRole('progressbar')).toHaveAttribute(
+      'aria-valuetext',
+      '已答 2 / 5 題',
+    )
+  })
 })
 
 describe('Button', () => {
