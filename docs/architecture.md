@@ -53,7 +53,7 @@ src/main.tsx
 | --- | --- |
 | `auth` | Email 密碼登入、登出、session 狀態 |
 | `library` | 題庫列表、詳情、題目瀏覽與搜尋、匯入、匯出、增量更新、重新命名、刪除 |
-| `practice` | 開始練習、作答、修改答案、練習摘要 |
+| `practice` | 開始練習（全部或錯題、依序或隨機、題數）、作答、修改答案、結束場次、練習摘要、刪除紀錄 |
 | `marks` | 標記題目、取消標記、標記列表 |
 | `stats` | 題庫、主題、每日活動與場次統計 |
 | `settings` | 帳號資訊、登出、閱讀字級、版本與安裝說明 |
@@ -72,7 +72,7 @@ src/main.tsx
 
 ### `src/components`
 
-跨頁面重用的介面元件，例如 `AppShell`、`Button`、`Card`、`Modal`、`QuestionCard`、`QuestionNavigator`、`StatCard`。`AnswerReview` 統一題目檢視時的選項與解析樣式，供已標記題目與題目瀏覽共用；`ImportDialog` 與 `SyncDialog` 共用 `JsonSourcePicker` 處理檔案上傳與貼上 JSON。
+跨頁面重用的介面元件，例如 `AppShell`、`Button`、`Card`、`Modal`、`QuestionCard`、`QuestionNavigator`、`StatCard`。`AnswerReview` 統一題目檢視時的選項與解析樣式，供已標記題目與題目瀏覽共用；`ImportDialog` 與 `SyncDialog` 共用 `JsonSourcePicker` 處理檔案上傳與貼上 JSON；`StartPracticeDialog` 選擇練習範圍、順序與題數。
 
 ### `src/pwa`
 
@@ -144,11 +144,13 @@ src/main.tsx
 
 ### 練習
 
-1. `start_practice_session` 建立或取回每位使用者每個題庫的唯一 session。
-2. `PracticePage` 依 `question_order` 顯示題目，使用 `submit_answer` 作答。
-3. `submit_answer` 在同一交易內新增或更新 attempt，並重算 session 計數與狀態。
-4. 前端收到結果後直接更新 session cache，再失效練習列表。
-5. 重新開始或切換模式時，RPC 刪除該 session 的 attempts 並重設狀態。
+1. 題庫詳情頁沒有進行中場次時，「開始練習」開啟 `StartPracticeDialog`，選擇全部題目或某次已完成練習的錯題、依序或隨機、全部或自訂題數。
+2. `start_practice_session` 已有進行中場次時直接回傳；否則驗證來源場次後建立新場次，並記錄 `source_session_id`。
+3. `PracticePage` 依 `question_order` 顯示題目，使用 `submit_answer` 作答。
+4. `submit_answer` 在同一交易內新增或更新 attempt，並重算該場次計數與狀態。
+5. 前端收到結果後直接更新 session cache，再失效練習列表。
+6. 「結束本場」將場次標記為已完成並保留作答；結果頁「再練一次」沿用相同順序、題數與錯題來源建立新場次，不再清除舊資料。
+7. 刪除單筆紀錄會連帶刪除該場 attempts；「清除全部」移除該題庫所有場次。統計與練習列表隨後失效重讀。
 
 ### 標記
 
@@ -162,6 +164,7 @@ src/main.tsx
 2. 以 `quiz_sets` 補上題庫標題與主題顯示名稱。
 3. 每日活動固定輸出最近 14 天，缺少資料的日期補零。
 4. view 使用 `security_invoker`，只會回傳目前使用者有權限的資料。
+5. 最近練習列表可刪除單場紀錄；刪除後失效所有 query，統計改以剩餘場次累計。
 
 ## Query Key
 

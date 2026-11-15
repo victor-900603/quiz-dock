@@ -51,6 +51,7 @@ Migration 位於 `supabase/migrations/`，依序為：
 20261113032000_fix_start_practice_session.sql
 20261113033000_fix_submit_answer_ambiguous.sql
 20261115090000_question_number_identity.sql
+20261116120000_multiple_practice_sessions.sql
 ```
 
 推到遠端資料庫：
@@ -77,11 +78,12 @@ npm run db:lint
 - rls：啟用 RLS、policies 與資料表 grants。
 - rpc：`start_practice_session`、`submit_answer`。
 - views：`v_set_stats`、`v_topic_stats`、`v_daily_activity`、`v_session_summary`。
-- single_practice_state：每位使用者每個題庫僅保留一筆練習狀態，作答可修改。
-- attempts_delete_policy：允許使用者刪除自己的作答紀錄，供重新開始練習時重設。
-- fix_start_practice_session：修正重新開始練習時的 session 判斷。
+- single_practice_state：改為單一進行中練習狀態，作答可修改。
+- attempts_delete_policy：允許使用者刪除自己的作答紀錄。
+- fix_start_practice_session：修正開始練習時的 session 判斷。
 - fix_submit_answer_ambiguous：修正 `submit_answer` 的欄位名稱歧義。
 - question_number_identity：題號改為非空且在題庫內唯一，新增 `sync_practice_session` 以重整練習進度。
+- multiple_practice_sessions：移除單場限制，改為每題庫同時僅一場進行中；新增錯題來源 `source_session_id` 與多場重整。
 
 ## 4. Auth 設定
 

@@ -45,7 +45,7 @@ QuizDock 的資料層位於 Supabase PostgreSQL。所有使用者資料以 `auth
 
 ### `public.practice_sessions`
 
-每位使用者每個題庫僅保留一筆練習狀態。
+每次練習各保留一筆紀錄；同一題庫同時最多一筆進行中的場次。
 
 | 欄位 | 型別 | 說明 |
 | --- | --- | --- |
@@ -59,9 +59,10 @@ QuizDock 的資料層位於 Supabase PostgreSQL。所有使用者資料以 `auth
 | `total_questions` | `integer` | 題目總數 |
 | `answered_count` | `integer` | 已作答數 |
 | `correct_count` | `integer` | 答對數 |
+| `source_session_id` | `uuid` | 錯題重練的來源場次，參照 `practice_sessions(id)`，可為空 |
 | `started_at` / `updated_at` / `completed_at` | `timestamptz` | 時間戳記 |
 
-唯一鍵：`(user_id, set_id)`。索引：`(user_id, status, updated_at desc)`、`set_id`。
+部分唯一索引：`(user_id, set_id) where status = 'in_progress'`，確保每題庫同時只有一場進行中。索引：`(user_id, status, updated_at desc)`、`set_id`、`source_session_id`。
 
 ### `public.attempts`
 
@@ -109,14 +110,15 @@ quiz_sets
   └─ attempts.set_id
 
 practice_sessions
-  └─ attempts.session_id
+  ├─ attempts.session_id
+  └─ practice_sessions.source_session_id（錯題重練來源）
 
 questions
   ├─ attempts.question_id
   └─ question_marks.question_id
 ```
 
-刪除題庫會連帶刪除題目、練習場次、作答紀錄與標記。刪除練習場次會連帶刪除該場次的作答紀錄。
+刪除題庫會連帶刪除題目、練習場次、作答紀錄與標記。刪除練習場次會連帶刪除該場次的作答紀錄，其他場次的 `source_session_id` 會設為空。
 
 ## RLS 政策
 
@@ -139,13 +141,14 @@ questions
 
 ## RPC
 
-### `public.start_practice_session(p_set_id uuid, p_mode text, p_restart boolean)`
+### `public.start_practice_session(p_set_id uuid, p_mode text, p_limit integer, p_source_session_id uuid)`
 
 - `security invoker`，以呼叫者身分執行。
-- 驗證使用者已登入、模式合法、題庫可見。
-- 每位使用者每個題庫僅一筆 session；未重新開始時直接回傳現有 session。
-- 重新開始時刪除該 session 的 attempts，重設題目順序與計數。
-- 依 `sort_order` 或隨機順序建立 `question_order`。
+- 驗證使用者已登入、模式合法、題數上限為正整數、題庫可見；有來源場次時，該場次須屬於使用者且同題庫。
+- 該題庫已有進行中的場次時直接回傳，不建立新場次。
+- 來源為空時取題庫全部題目；有來源時只取該場次答錯的題目。
+- 依 `sort_order` 或隨機順序排列後，套用 `p_limit`（空值代表全部）。
+- 沒有可用題目或該來源沒有錯題時回報錯誤；成功時建立一筆新的練習場次。
 
 ### `public.submit_answer(p_session_id uuid, p_question_id uuid, p_selected text[], p_duration_ms integer)`
 
@@ -158,9 +161,9 @@ questions
 ### `public.sync_practice_session(p_set_id uuid)`
 
 - `security invoker`，以呼叫者身分執行。
-- 驗證使用者已登入，並鎖定該使用者在此題庫的 session；沒有 session 時回傳 `null`。
-- 保留仍存在題目的原有順序，新題依 `sort_order` 附加到最後。
-- 重算該 session 所有 attempts 的 `is_correct`，並更新 answered_count、correct_count、current_index、total_questions、status 與 completed_at。
+- 驗證使用者已登入，並鎖定該使用者在此題庫的所有場次；沒有場次時回傳 `null`。
+- 對每場保留仍存在題目的原有順序，新題依 `sort_order` 附加到最後。
+- 重算各場所有 attempts 的 `is_correct`，並更新 answered_count、correct_count、current_index、total_questions、status 與 completed_at；已完成的場次不會被重新開啟。
 - 供「更新題庫」在題目增刪改之後重整練習進度。
 
 ## 統計 View
@@ -186,6 +189,7 @@ questions
 20261113032000_fix_start_practice_session.sql 修正重新開始流程
 20261113033000_fix_submit_answer_ambiguous.sql 修正 RPC 欄位歧義
 20261115090000_question_number_identity.sql 題號非空與唯一、練習進度重整 RPC
+20261116120000_multiple_practice_sessions.sql 多場練習、錯題來源與單場進行中限制
 ```
 
 已套用的 migration 不直接修改；修正請新增 migration。
