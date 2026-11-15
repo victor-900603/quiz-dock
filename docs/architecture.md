@@ -55,7 +55,9 @@ src/main.tsx
 | `practice` | 開始練習、作答、修改答案、練習摘要 |
 | `marks` | 標記題目、取消標記、標記列表 |
 | `stats` | 題庫、主題、每日活動與場次統計 |
-| `settings` | 帳號資訊、登出、版本與安裝說明 |
+| `settings` | 帳號資訊、登出、閱讀字級、版本與安裝說明 |
+
+`settings/readingScale.ts` 以 `localStorage` 保存閱讀字級（小、標準、大、特大），於 `main.tsx` 啟動時套用到 `document.documentElement`，並以 `useSyncExternalStore` 提供訂閱。題幹、選項與解析使用對應的閱讀字級 class，介面文字不受影響。
 
 ### `src/lib`
 
