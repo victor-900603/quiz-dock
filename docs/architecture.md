@@ -202,7 +202,7 @@ Workbox 使用 `generateSW` 模式：
 
 1. `src/main.tsx` 以 `virtual:pwa-register` 註冊 Service Worker。
 2. 偵測到 waiting worker 時，`onNeedRefresh` 將 `updateSW` 寫入 `pwaStore`。
-3. `UpdatePrompt` 顯示「重新載入」與「稍後」。重新載入會呼叫 `updateSW(true)` 並啟用新版本。
+3. `UpdatePrompt` 顯示「重新載入」與「稍後」。重新載入會呼叫 `updateSW(true)`，期間顯示更新進度並停用操作；完成後自動重新載入，失敗時顯示錯誤並允許重試。
 4. `onRegisteredSW` 每小時呼叫 `registration.update()` 檢查新版本。
 5. 使用者選擇稍後時僅關閉提示，不會自動重新載入。
 
