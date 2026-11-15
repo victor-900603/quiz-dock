@@ -35,7 +35,6 @@ import {
   useSyncSetMutation,
 } from './queries'
 import { previewQuizSetSync } from './syncService'
-import { QuestionBrowser } from './QuestionBrowser'
 
 export function SetDetailPage() {
   const { setId } = useParams()
@@ -68,11 +67,6 @@ export function SetDetailPage() {
 
   const set = setQuery.data?.set
   const questions = setQuery.data?.questions ?? []
-  const markedQuestionIds = new Set(
-    (marksQuery.data ?? [])
-      .filter((mark) => mark.setId === set?.id)
-      .map((mark) => mark.id),
-  )
   const progress = (sessionsQuery.data ?? []).find((item) => item.setId === set?.id)
   const practiceHref = progress
     ? `/practice/${progress.id}?setId=${progress.setId}&mode=${progress.mode}`
@@ -350,11 +344,21 @@ export function SetDetailPage() {
 
       {questions.length > 0 && (
         <Card className="mt-6 p-5 sm:p-6">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="font-serif text-xl text-ink">題目瀏覽</h2>
-            <p className="text-xs text-muted">搜尋題幹、選項或解析，展開後可查看答案與解析。</p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-serif text-xl text-ink">題目瀏覽</h2>
+              <p className="mt-1 text-sm text-muted">
+                共 {questions.length} 題，可搜尋題幹、選項或解析，展開後查看答案與解析。
+              </p>
+            </div>
+            <Link
+              to={`/sets/${set.id}/questions`}
+              className={buttonStyles('secondary', 'shrink-0')}
+            >
+              <ListOrdered className="h-4 w-4" aria-hidden="true" />
+              瀏覽題目
+            </Link>
           </div>
-          <QuestionBrowser questions={questions} markedQuestionIds={markedQuestionIds} />
         </Card>
       )}
 

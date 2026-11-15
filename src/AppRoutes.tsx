@@ -5,6 +5,7 @@ import { useAuth } from './features/auth/AuthContext'
 import { LoginPage } from './features/auth/LoginPage'
 import { LibraryPage } from './features/library/LibraryPage'
 import { SetDetailPage } from './features/library/SetDetailPage'
+import { SetQuestionsPage } from './features/library/SetQuestionsPage'
 import { MarksPage } from './features/marks/MarksPage'
 import { NotFoundPage } from './features/NotFoundPage'
 import { PracticePage } from './features/practice/PracticePage'
@@ -47,6 +48,7 @@ export function AppRoutes() {
       >
         <Route path="/" element={<LibraryPage />} />
         <Route path="/sets/:setId" element={<SetDetailPage />} />
+        <Route path="/sets/:setId/questions" element={<SetQuestionsPage />} />
         <Route path="/practice/:sessionId" element={<PracticePage />} />
         <Route path="/results/:sessionId" element={<ResultsPage />} />
         <Route path="/marks" element={<MarksPage />} />

@@ -28,6 +28,7 @@ src/main.tsx
               │       └─ 受保護路由：AppShell
               │           ├─ /                  LibraryPage
               │           ├─ /sets/:setId       SetDetailPage
+              │           ├─ /sets/:setId/questions  SetQuestionsPage
               │           ├─ /practice/:id      PracticePage
               │           ├─ /results/:id       ResultsPage
               │           ├─ /marks             MarksPage
@@ -95,6 +96,7 @@ src/main.tsx
 | `/auth/callback` | 重新導向 `/` | 公開 |
 | `/` | 題庫列表 | 需登入 |
 | `/sets/:setId` | 題庫詳情 | 需登入 |
+| `/sets/:setId/questions` | 題目瀏覽與搜尋 | 需登入 |
 | `/practice/:sessionId` | 練習 | 需登入 |
 | `/results/:sessionId` | 練習摘要 | 需登入 |
 | `/marks` | 標記列表 | 需登入 |
@@ -135,7 +137,7 @@ src/main.tsx
 
 ### 題目瀏覽
 
-1. `SetDetailPage` 直接使用 `useSetQuery` 已載入的題庫詳情，不新增查詢。
+1. `SetDetailPage` 的「瀏覽題目」導向 `/sets/:setId/questions`；`SetQuestionsPage` 使用 `useSetQuery` 已載入的題庫詳情，不新增查詢。
 2. `QuestionBrowser` 以題幹、選項、解析與題號過濾，並可依主題篩選；純數字輸入會比對題號。
 3. 過濾使用 `useDeferredValue` 延後計算，每次顯示 20 題，按「載入更多」追加，變更關鍵字或主題時重設。
 4. 每題以原生 `<details>` 展開選項、正確答案與解析；標記狀態唯讀顯示。
