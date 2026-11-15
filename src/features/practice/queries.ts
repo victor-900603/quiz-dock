@@ -8,8 +8,11 @@ import type {
   SubmitAnswerResult,
 } from '../../types/quiz'
 import {
+  deletePracticeSession,
+  deletePracticeSessionsForSet,
   fetchPracticeSession,
   fetchPracticeSessions,
+  finishPracticeSession,
   startPracticeSession,
   submitPracticeAnswer,
   type SubmitAnswerInput,
@@ -39,18 +42,52 @@ export function usePracticeSessionQuery(sessionId: string | undefined) {
 type StartPracticeInput = {
   setId: string
   mode: PracticeMode
-  restart?: boolean
+  limit?: number | null
+  sourceSessionId?: string | null
 }
 
 export function useStartPracticeMutation() {
   const queryClient = useQueryClient()
 
   return useMutation<PracticeSession, Error, StartPracticeInput>({
-    mutationFn: ({ setId, mode, restart = false }) =>
-      startPracticeSession(setId, mode, restart),
+    mutationFn: ({ setId, mode, limit, sourceSessionId }) =>
+      startPracticeSession(setId, { mode, limit, sourceSessionId }),
     onSuccess: (session) => {
       queryClient.removeQueries({ queryKey: practiceKeys.session(session.id) })
       queryClient.invalidateQueries({ queryKey: practiceKeys.sessions() })
+    },
+  })
+}
+
+export function useFinishPracticeSessionMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation<PracticeSession, Error, string>({
+    mutationFn: (sessionId) => finishPracticeSession(sessionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries()
+    },
+  })
+}
+
+export function useDeletePracticeSessionMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation<void, Error, string>({
+    mutationFn: (sessionId) => deletePracticeSession(sessionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries()
+    },
+  })
+}
+
+export function useClearPracticeSessionsMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation<void, Error, string>({
+    mutationFn: (setId) => deletePracticeSessionsForSet(setId),
+    onSuccess: () => {
+      queryClient.invalidateQueries()
     },
   })
 }

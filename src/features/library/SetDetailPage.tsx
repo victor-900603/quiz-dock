@@ -1,13 +1,11 @@
 import { useCallback, useState } from 'react'
 import {
   ArrowLeft,
-  BarChart3,
   Download,
   ListOrdered,
   Pencil,
   Play,
   RefreshCw,
-  Shuffle,
   Trash2,
 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -18,15 +16,22 @@ import { EmptyState } from '../../components/EmptyState'
 import { Modal } from '../../components/Modal'
 import { PageHeader } from '../../components/PageHeader'
 import { ProgressBar } from '../../components/ProgressBar'
+import { StartPracticeDialog, type StartPracticeOptions } from '../../components/StartPracticeDialog'
 import { StatCard } from '../../components/StatCard'
 import { SyncDialog } from '../../components/SyncDialog'
 import { TopicCounts } from '../../components/TopicCounts'
 import { downloadTextFile } from '../../lib/download'
-import { formatPercentValue } from '../../lib/format'
+import { formatPercentValue, formatShortDateTime } from '../../lib/format'
 import type { ImportPayload } from '../../schemas/import'
-import type { PracticeMode } from '../../types/quiz'
+import type { PracticeMode, PracticeProgress } from '../../types/quiz'
 import { useMarksQuery } from '../marks/queries'
-import { usePracticeSessionsQuery, useStartPracticeMutation } from '../practice/queries'
+import {
+  useClearPracticeSessionsMutation,
+  useDeletePracticeSessionMutation,
+  useFinishPracticeSessionMutation,
+  usePracticeSessionsQuery,
+  useStartPracticeMutation,
+} from '../practice/queries'
 import { exportQuizSet } from './exportService'
 import {
   useDeleteSetMutation,
@@ -36,6 +41,11 @@ import {
 } from './queries'
 import { previewQuizSetSync } from './syncService'
 
+const modeLabels: Record<PracticeMode, string> = {
+  sequential: '依序',
+  random: '隨機',
+}
+
 export function SetDetailPage() {
   const { setId } = useParams()
   const navigate = useNavigate()
@@ -43,19 +53,21 @@ export function SetDetailPage() {
   const setQuery = useSetQuery(setId)
   const sessionsQuery = usePracticeSessionsQuery()
   const startMutation = useStartPracticeMutation()
+  const finishMutation = useFinishPracticeSessionMutation()
+  const deleteSessionMutation = useDeletePracticeSessionMutation()
+  const clearSessionsMutation = useClearPracticeSessionsMutation()
   const renameMutation = useRenameSetMutation()
   const deleteMutation = useDeleteSetMutation()
   const syncMutation = useSyncSetMutation()
   const [renameOpen, setRenameOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [syncOpen, setSyncOpen] = useState(false)
+  const [startOpen, setStartOpen] = useState(false)
+  const [sessionToDelete, setSessionToDelete] = useState<PracticeProgress | null>(null)
+  const [clearOpen, setClearOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
-  const [pendingAction, setPendingAction] = useState<
-    { type: 'mode'; mode: PracticeMode } | { type: 'restart' } | null
-  >(null)
   const [renameTitle, setRenameTitle] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
-  const [startIntent, setStartIntent] = useState<'mode' | 'restart' | null>(null)
 
   const buildSyncPlan = useCallback(
     (payload: ImportPayload) => {
@@ -67,11 +79,15 @@ export function SetDetailPage() {
 
   const set = setQuery.data?.set
   const questions = setQuery.data?.questions ?? []
-  const progress = (sessionsQuery.data ?? []).find((item) => item.setId === set?.id)
-  const practiceHref = progress
-    ? `/practice/${progress.id}?setId=${progress.setId}&mode=${progress.mode}`
+  const setSessions = (sessionsQuery.data ?? []).filter(
+    (session) => session.setId === set?.id,
+  )
+  const activeSession = setSessions.find(
+    (session) => session.status === 'in_progress',
+  )
+  const practiceHref = activeSession
+    ? `/practice/${activeSession.id}?setId=${activeSession.setId}&mode=${activeSession.mode}`
     : null
-  const summaryHref = progress ? `/results/${progress.id}` : null
 
   function openRename() {
     setRenameTitle(set?.title ?? '')
@@ -79,57 +95,59 @@ export function SetDetailPage() {
     setRenameOpen(true)
   }
 
-  async function startPractice(
-    mode: PracticeMode,
-    restart: boolean,
-    intent: 'mode' | 'restart',
-  ) {
+  async function handleStart(options: StartPracticeOptions) {
     if (!set) return
 
+    const session = await startMutation.mutateAsync({
+      setId: set.id,
+      mode: options.mode,
+      limit: options.limit,
+      sourceSessionId: options.sourceSessionId,
+    })
+    setStartOpen(false)
+    navigate(`/practice/${session.id}?setId=${set.id}&mode=${session.mode}`)
+  }
+
+  async function handleFinish(sessionId: string) {
     setActionError(null)
-    setStartIntent(intent)
 
     try {
-      const session = await startMutation.mutateAsync({ setId: set.id, mode, restart })
-      navigate(`/practice/${session.id}?setId=${set.id}&mode=${session.mode}`)
+      await finishMutation.mutateAsync(sessionId)
     } catch (error) {
       setActionError(
-        error instanceof Error ? error.message : '無法開始練習，請稍後再試。',
+        error instanceof Error ? error.message : '無法結束練習，請稍後再試。',
       )
-    } finally {
-      setStartIntent(null)
     }
   }
 
-  function requestMode(mode: PracticeMode) {
-    if (!set || set.questionCount === 0) return
+  async function handleDeleteSession() {
+    if (!sessionToDelete) return
+    const sessionId = sessionToDelete.id
+    setSessionToDelete(null)
+    setActionError(null)
 
-    if (!progress) {
-      void startPractice(mode, false, 'mode')
-      return
+    try {
+      await deleteSessionMutation.mutateAsync(sessionId)
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : '無法刪除練習紀錄，請稍後再試。',
+      )
     }
-
-    if (progress.mode === mode) {
-      navigate(practiceHref as string)
-      return
-    }
-
-    setPendingAction({ type: 'mode', mode })
   }
 
-  function requestRestart() {
-    if (!progress) return
-    setPendingAction({ type: 'restart' })
-  }
+  async function handleClearSessions() {
+    if (!set) return
+    setActionError(null)
 
-  function handlePendingConfirm() {
-    if (!pendingAction || !set) return
-
-    const mode =
-      pendingAction.type === 'mode' ? pendingAction.mode : progress?.mode ?? 'sequential'
-    const intent = pendingAction.type === 'mode' ? 'mode' : 'restart'
-    setPendingAction(null)
-    void startPractice(mode, true, intent)
+    try {
+      await clearSessionsMutation.mutateAsync(set.id)
+      setClearOpen(false)
+    } catch (error) {
+      setClearOpen(false)
+      setActionError(
+        error instanceof Error ? error.message : '無法清除練習紀錄，請稍後再試。',
+      )
+    }
   }
 
   async function handleRename() {
@@ -229,13 +247,8 @@ export function SetDetailPage() {
   }
 
   const markedCount = (marksQuery.data ?? []).filter((mark) => mark.setId === set.id).length
-  const answeredCount = progress?.answered ?? set.answeredCount
-  const accuracy =
-    progress && progress.answered > 0
-      ? (progress.correct / progress.answered) * 100
-      : set.accuracy
-  const pendingMode = startMutation.isPending ? startMutation.variables?.mode : undefined
-  const practiceDisabled = startMutation.isPending || set.questionCount === 0
+  const practiceDisabled = set.questionCount === 0
+  const finishingId = finishMutation.isPending ? finishMutation.variables : null
 
   return (
     <>
@@ -251,86 +264,64 @@ export function SetDetailPage() {
         eyebrow="題庫詳情"
         title={set.title}
         description={set.description}
-        actionsClassName="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:shrink-0 sm:flex-nowrap sm:items-center"
+        actionsClassName="flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0 sm:flex-nowrap"
         actions={
-          <>
-            {progress ? (
-              progress.status === 'completed' ? (
-                <Link
-                  to={summaryHref as string}
-                  className={buttonStyles(
-                    'primary',
-                    'whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm',
-                  )}
-                >
-                  <BarChart3 className="h-4 w-4" aria-hidden="true" />
-                  查看摘要
-                </Link>
-              ) : (
-                <Link
-                  to={practiceHref as string}
-                  className={buttonStyles(
-                    'primary',
-                    'whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm',
-                  )}
-                >
-                  <Play className="h-4 w-4" aria-hidden="true" />
-                  繼續練習
-                </Link>
-              )
-            ) : (
-              <Button
-                onClick={() => requestMode('sequential')}
-                loading={startIntent === 'mode' && pendingMode === 'sequential'}
-                disabled={practiceDisabled}
-                className="whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm"
+          activeSession ? (
+            <>
+              <Link
+                to={practiceHref as string}
+                className={buttonStyles(
+                  'primary',
+                  'whitespace-nowrap gap-1.5 px-2 text-xs sm:gap-2 sm:px-4 sm:text-sm',
+                )}
               >
                 <Play className="h-4 w-4" aria-hidden="true" />
-                依序練習
-              </Button>
-            )}
-            <Button
-              variant="secondary"
-              onClick={() => requestMode('random')}
-              loading={startIntent === 'mode' && pendingMode === 'random'}
-              disabled={practiceDisabled}
-              className="whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm"
-            >
-              <Shuffle className="h-4 w-4" aria-hidden="true" />
-              隨機練習
-            </Button>
-            {progress && (
+                繼續練習
+              </Link>
               <Button
                 variant="secondary"
-                onClick={requestRestart}
-                loading={startIntent === 'restart'}
-                disabled={startMutation.isPending}
-                className="whitespace-nowrap gap-1.5 px-1.5 text-xs sm:gap-2 sm:px-4 sm:text-sm"
+                onClick={() => void handleFinish(activeSession.id)}
+                loading={finishingId === activeSession.id}
+                disabled={finishMutation.isPending}
+                className="whitespace-nowrap gap-1.5 px-2 text-xs sm:gap-2 sm:px-4 sm:text-sm"
               >
-                <ListOrdered className="h-4 w-4" aria-hidden="true" />
-                重新開始
+                結束本場
               </Button>
-            )}
-          </>
+            </>
+          ) : (
+            <Button
+              onClick={() => {
+                setActionError(null)
+                setStartOpen(true)
+              }}
+              disabled={practiceDisabled}
+              className="whitespace-nowrap gap-1.5 px-2 text-xs sm:gap-2 sm:px-4 sm:text-sm"
+            >
+              <Play className="h-4 w-4" aria-hidden="true" />
+              開始練習
+            </Button>
+          )
         }
       />
 
       {set.questionCount === 0 ? (
         <p className="mt-3 text-xs text-muted">此題庫沒有題目，請先重新匯入。</p>
-      ) : progress ? (
+      ) : activeSession ? (
         <p className="mt-3 text-xs text-muted">
-          切換模式或重新開始會清除這個題庫目前的作答與統計。
+          目前有一場練習進行中，結束後才能開始新的練習。
         </p>
       ) : (
-        <p className="mt-3 text-xs text-muted">選擇練習模式後即可開始。</p>
+        <p className="mt-3 text-xs text-muted">
+          開始練習時可選擇範圍、順序與題數；每次練習都會保留紀錄。
+        </p>
       )}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="題數" value={`${set.questionCount}`} hint={`${set.topicCount} 個主題`} />
         <StatCard
           label="正確率"
-          value={formatPercentValue(accuracy)}
-          hint={`已答 ${answeredCount} 題`}
+          value={formatPercentValue(set.accuracy)}
+          hint={`已答 ${set.answeredCount} 題`}
         />
         <StatCard label="標記" value={`${markedCount}`} hint="已標記題目" />
       </div>
@@ -362,35 +353,110 @@ export function SetDetailPage() {
         </Card>
       )}
 
-      {progress && practiceHref && (
+      {activeSession && practiceHref && (
         <Card className="mt-6 p-5 sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted">練習狀態</p>
               <h2 className="mt-1 font-serif text-xl text-ink">
-                {progress.status === 'completed'
-                  ? '已完成，可返回修改答案'
-                  : progress.answered > 0
-                    ? `上次練到第 ${progress.answered + 1} 題`
-                    : '尚未開始作答'}
+                {activeSession.answered > 0
+                  ? `上次練到第 ${activeSession.answered + 1} 題`
+                  : '尚未開始作答'}
               </h2>
               <p className="mt-1 text-sm text-muted">
-                已答 {progress.answered} / {progress.total} 題
+                已答 {activeSession.answered} / {activeSession.total} 題
               </p>
             </div>
             <Link to={practiceHref} className={buttonStyles('primary')}>
-              {progress.status === 'completed' ? '返回修改' : '繼續練習'}
+              繼續練習
             </Link>
           </div>
           <div className="mt-5">
             <ProgressBar
-              answered={progress.answered}
-              total={progress.total}
+              answered={activeSession.answered}
+              total={activeSession.total}
               label="目前進度"
             />
           </div>
         </Card>
       )}
+
+      <Card className="mt-6 p-5 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-serif text-xl text-ink">練習紀錄</h2>
+            <p className="mt-1 text-sm text-muted">
+              每次練習都會保留，統計為所有場次累計。
+            </p>
+          </div>
+          {setSessions.length > 0 && (
+            <Button
+              variant="ghost"
+              onClick={() => setClearOpen(true)}
+              disabled={clearSessionsMutation.isPending}
+              className="shrink-0 gap-1.5 text-xs"
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+              清除全部
+            </Button>
+          )}
+        </div>
+
+        {setSessions.length === 0 ? (
+          <p className="mt-4 text-sm text-muted">還沒有練習紀錄。</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-line">
+            {setSessions.map((session) => {
+              const accuracy =
+                session.answered > 0
+                  ? (session.correct / session.answered) * 100
+                  : 0
+
+              return (
+                <li
+                  key={session.id}
+                  className="flex flex-wrap items-center justify-between gap-3 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="flex flex-wrap items-center gap-2 text-sm text-ink">
+                      {formatShortDateTime(session.startedAt)}
+                      <span
+                        className={
+                          session.status === 'completed'
+                            ? 'rounded-full bg-correct-soft px-2 py-0.5 text-[11px] font-medium text-correct'
+                            : 'rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent'
+                        }
+                      >
+                        {session.status === 'completed' ? '已完成' : '進行中'}
+                      </span>
+                    </p>
+                    <p className="mt-1 text-xs text-muted">
+                      {modeLabels[session.mode]} · {session.answered} / {session.total} 題 · 正確率{' '}
+                      {formatPercentValue(accuracy)}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Link
+                      to={`/results/${session.id}`}
+                      className={buttonStyles('ghost', 'px-2 text-xs')}
+                    >
+                      查看摘要
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setSessionToDelete(session)}
+                      className="gap-1 px-2 text-xs text-wrong"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      刪除
+                    </Button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </Card>
 
       <Card className="mt-6 p-5 sm:p-6">
         <h2 className="font-serif text-xl text-ink">題庫操作</h2>
@@ -425,6 +491,15 @@ export function SetDetailPage() {
           更新題庫以題號比對題目，會保留未變動題目的作答進度；匯出的 JSON 可直接作為更新來源。
         </p>
       </Card>
+
+      <StartPracticeDialog
+        open={startOpen}
+        title={set.title}
+        totalQuestions={set.questionCount}
+        sessions={setSessions}
+        onClose={() => setStartOpen(false)}
+        onStart={handleStart}
+      />
 
       <Modal
         open={renameOpen}
@@ -468,12 +543,25 @@ export function SetDetailPage() {
       />
 
       <ConfirmDialog
-        open={pendingAction !== null}
-        title={pendingAction?.type === 'mode' ? '切換模式' : '重新開始'}
-        description="切換模式或重新開始會清除這個題庫目前的作答與統計，確定要繼續嗎？"
-        confirmLabel={pendingAction?.type === 'mode' ? '切換模式' : '重新開始'}
-        onCancel={() => setPendingAction(null)}
-        onConfirm={handlePendingConfirm}
+        open={sessionToDelete !== null}
+        title="刪除練習紀錄"
+        description={`確定要刪除這筆練習紀錄嗎？該場 ${sessionToDelete?.answered ?? 0} 題的作答會一併移除，題目標記不受影響。`}
+        confirmLabel="刪除"
+        confirmLoading={deleteSessionMutation.isPending}
+        cancelDisabled={deleteSessionMutation.isPending}
+        onCancel={() => setSessionToDelete(null)}
+        onConfirm={() => void handleDeleteSession()}
+      />
+
+      <ConfirmDialog
+        open={clearOpen}
+        title="清除全部練習紀錄"
+        description={`確定要清除「${set.title}」的所有練習紀錄嗎？作答與統計會一併移除，題目標記不受影響。`}
+        confirmLabel="清除全部"
+        confirmLoading={clearSessionsMutation.isPending}
+        cancelDisabled={clearSessionsMutation.isPending}
+        onCancel={() => setClearOpen(false)}
+        onConfirm={() => void handleClearSessions()}
       />
 
       <ConfirmDialog

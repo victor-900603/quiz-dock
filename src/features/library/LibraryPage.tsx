@@ -27,9 +27,13 @@ export function LibraryPage() {
   const sets = setsQuery.data ?? []
   const marks = marksQuery.data ?? []
   const progressBySet = new Map(
-    (sessionsQuery.data ?? []).map((progress) => [progress.setId, progress]),
+    (sessionsQuery.data ?? [])
+      .filter((progress) => progress.status === 'in_progress')
+      .map((progress) => [progress.setId, progress]),
   )
-  const activeProgress = (sessionsQuery.data ?? [])[0]
+  const activeProgress = (sessionsQuery.data ?? []).find(
+    (progress) => progress.status === 'in_progress',
+  )
   const activeSet = activeProgress
     ? sets.find((set) => set.id === activeProgress.setId)
     : undefined

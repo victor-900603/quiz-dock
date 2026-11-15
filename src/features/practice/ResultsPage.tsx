@@ -4,7 +4,6 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AccuracySummary } from '../../components/AccuracySummary'
 import { Button, buttonStyles } from '../../components/Button'
 import { Card } from '../../components/Card'
-import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { EmptyState } from '../../components/EmptyState'
 import { PageHeader } from '../../components/PageHeader'
 import { StatCard } from '../../components/StatCard'
@@ -104,7 +103,6 @@ type ResultsViewProps = {
 function ResultsView({ sessionId, detail }: ResultsViewProps) {
   const navigate = useNavigate()
   const startMutation = useStartPracticeMutation()
-  const [restartOpen, setRestartOpen] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const { session, set, questions, attempts } = detail
   const summary = useMemo(
@@ -113,21 +111,20 @@ function ResultsView({ sessionId, detail }: ResultsViewProps) {
   )
   const practiceHref = `/practice/${sessionId}?setId=${set.id}&mode=${session.mode}`
 
-  async function handleRestart() {
+  async function handlePracticeAgain() {
     setActionError(null)
 
     try {
       const next = await startMutation.mutateAsync({
         setId: set.id,
         mode: session.mode,
-        restart: true,
+        limit: session.totalQuestions,
+        sourceSessionId: session.sourceSessionId,
       })
-      setRestartOpen(false)
       navigate(`/practice/${next.id}?setId=${next.setId}&mode=${next.mode}`)
     } catch (error) {
-      setRestartOpen(false)
       setActionError(
-        error instanceof Error ? error.message : '無法重新開始，請稍後再試。',
+        error instanceof Error ? error.message : '無法再練一次，請稍後再試。',
       )
     }
   }
@@ -178,12 +175,12 @@ function ResultsView({ sessionId, detail }: ResultsViewProps) {
         </Link>
         <button
           type="button"
-          onClick={() => setRestartOpen(true)}
+          onClick={() => void handlePracticeAgain()}
           disabled={startMutation.isPending}
           className={buttonStyles('secondary')}
         >
           <RotateCcw className="h-4 w-4" aria-hidden="true" />
-          重新開始
+          {startMutation.isPending ? '建立中...' : '再練一次'}
         </button>
         <Link to={`/sets/${set.id}`} className={buttonStyles('secondary')}>
           回題庫
@@ -193,17 +190,6 @@ function ResultsView({ sessionId, detail }: ResultsViewProps) {
           查看統計
         </Link>
       </div>
-
-      <ConfirmDialog
-        open={restartOpen}
-        title="重新開始"
-        description="重新開始會清除這個題庫的作答與統計，確定要繼續嗎？"
-        confirmLabel="重新開始"
-        confirmLoading={startMutation.isPending}
-        cancelDisabled={startMutation.isPending}
-        onCancel={() => setRestartOpen(false)}
-        onConfirm={() => void handleRestart()}
-      />
     </>
   )
 }

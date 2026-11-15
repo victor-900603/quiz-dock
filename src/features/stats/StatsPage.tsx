@@ -1,13 +1,21 @@
-import { BarChart3, BookOpen, CalendarDays, Target } from 'lucide-react'
+import { useState } from 'react'
+import { BarChart3, BookOpen, CalendarDays, Target, Trash2 } from 'lucide-react'
 import { Button } from '../../components/Button'
 import { Card } from '../../components/Card'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { EmptyState } from '../../components/EmptyState'
 import { PageHeader } from '../../components/PageHeader'
 import { StatCard } from '../../components/StatCard'
 import { TopicBars } from '../../components/TopicBars'
 import { cn } from '../../lib/cn'
 import { formatPercent, formatShortDateTime } from '../../lib/format'
-import type { PracticeMode, PracticeStatus, StatsOverview } from '../../types/quiz'
+import type {
+  PracticeMode,
+  PracticeStatus,
+  SessionSummary,
+  StatsOverview,
+} from '../../types/quiz'
+import { useDeletePracticeSessionMutation } from '../practice/queries'
 import { useStatsOverviewQuery } from './queries'
 
 const modeLabels: Record<PracticeMode, string> = {
@@ -52,6 +60,24 @@ function StatsSkeleton() {
 
 function StatsContent({ stats }: { stats: StatsOverview }) {
   const maxDaily = Math.max(...stats.dailyActivity.map((item) => item.answered), 1)
+  const deleteMutation = useDeletePracticeSessionMutation()
+  const [sessionToDelete, setSessionToDelete] = useState<SessionSummary | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  async function handleDeleteSession() {
+    if (!sessionToDelete) return
+    const sessionId = sessionToDelete.id
+    setSessionToDelete(null)
+    setActionError(null)
+
+    try {
+      await deleteMutation.mutateAsync(sessionId)
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : '無法刪除練習紀錄，請稍後再試。',
+      )
+    }
+  }
 
   return (
     <>
@@ -143,6 +169,14 @@ function StatsContent({ stats }: { stats: StatsOverview }) {
 
       <Card className="mt-6 p-5 sm:p-6">
         <h2 className="font-serif text-xl text-ink">最近練習</h2>
+        <p className="mt-1 text-sm text-muted">
+          統計累計所有練習場次；刪除紀錄會一併移除該場作答。
+        </p>
+        {actionError && (
+          <p className="mt-3 text-sm text-wrong" role="alert">
+            {actionError}
+          </p>
+        )}
         {stats.recentSessions.length === 0 ? (
           <p className="mt-4 text-sm text-muted">還沒有練習場次。</p>
         ) : (
@@ -161,19 +195,40 @@ function StatsContent({ stats }: { stats: StatsOverview }) {
                     </time>
                   </p>
                 </div>
-                <div className="shrink-0 text-right">
-                  <p className="font-mono text-sm text-ink">
-                    {formatPercent(session.correct, session.answered)}
-                  </p>
-                  <p className="mt-1 text-xs text-muted">
-                    {session.correct} / {session.answered}
-                  </p>
+                <div className="flex shrink-0 items-center gap-3">
+                  <div className="text-right">
+                    <p className="font-mono text-sm text-ink">
+                      {formatPercent(session.correct, session.answered)}
+                    </p>
+                    <p className="mt-1 text-xs text-muted">
+                      {session.correct} / {session.answered}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setSessionToDelete(session)}
+                    aria-label={`刪除 ${session.setTitle} 的練習紀錄`}
+                    className="px-2 text-wrong"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                  </Button>
                 </div>
               </div>
             ))}
           </div>
         )}
       </Card>
+
+      <ConfirmDialog
+        open={sessionToDelete !== null}
+        title="刪除練習紀錄"
+        description={`確定要刪除這筆練習紀錄嗎？該場 ${sessionToDelete?.answered ?? 0} 題的作答會一併移除，題目標記不受影響。`}
+        confirmLabel="刪除"
+        confirmLoading={deleteMutation.isPending}
+        cancelDisabled={deleteMutation.isPending}
+        onCancel={() => setSessionToDelete(null)}
+        onConfirm={() => void handleDeleteSession()}
+      />
     </>
   )
 }

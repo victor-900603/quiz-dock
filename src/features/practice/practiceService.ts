@@ -46,6 +46,7 @@ export function mapPracticeSession(row: SessionRow): PracticeSession {
     totalQuestions: row.total_questions,
     answeredCount: row.answered_count,
     correctCount: row.correct_count,
+    sourceSessionId: row.source_session_id,
     startedAt: row.started_at,
     completedAt: row.completed_at,
     updatedAt: row.updated_at,
@@ -61,6 +62,9 @@ export function mapPracticeProgress(row: SessionRow): PracticeProgress {
     answered: row.answered_count,
     correct: row.correct_count,
     total: row.total_questions,
+    sourceSessionId: row.source_session_id,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
     updatedAt: row.updated_at,
   }
 }
@@ -153,16 +157,22 @@ export async function fetchPracticeSession(
   }
 }
 
+export type StartPracticeOptions = {
+  mode: PracticeMode
+  limit?: number | null
+  sourceSessionId?: string | null
+}
+
 export async function startPracticeSession(
   setId: string,
-  mode: PracticeMode,
-  restart: boolean,
+  { mode, limit = null, sourceSessionId = null }: StartPracticeOptions,
   client: Client = supabase,
 ): Promise<PracticeSession> {
   const { data, error } = await client.rpc('start_practice_session', {
     p_set_id: setId,
     p_mode: mode,
-    p_restart: restart,
+    p_limit: limit ?? undefined,
+    p_source_session_id: sourceSessionId,
   })
 
   if (error) {
@@ -174,6 +184,64 @@ export async function startPracticeSession(
   }
 
   return mapPracticeSession(data)
+}
+
+export async function finishPracticeSession(
+  sessionId: string,
+  client: Client = supabase,
+): Promise<PracticeSession> {
+  const { data, error } = await client
+    .from('practice_sessions')
+    .update({
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+    })
+    .eq('id', sessionId)
+    .select('*')
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(describeSupabaseError(error, '無法結束練習，請稍後再試。'))
+  }
+
+  if (!data) {
+    throw new Error('找不到練習紀錄，或沒有修改權限。')
+  }
+
+  return mapPracticeSession(data)
+}
+
+export async function deletePracticeSession(
+  sessionId: string,
+  client: Client = supabase,
+): Promise<void> {
+  const { data, error } = await client
+    .from('practice_sessions')
+    .delete()
+    .eq('id', sessionId)
+    .select('id')
+
+  if (error) {
+    throw new Error(describeSupabaseError(error, '無法刪除練習紀錄，請稍後再試。'))
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error('找不到練習紀錄，或沒有刪除權限。')
+  }
+}
+
+export async function deletePracticeSessionsForSet(
+  setId: string,
+  client: Client = supabase,
+): Promise<void> {
+  const { error } = await client
+    .from('practice_sessions')
+    .delete()
+    .eq('set_id', setId)
+
+  if (error) {
+    throw new Error(describeSupabaseError(error, '無法清除練習紀錄，請稍後再試。'))
+  }
 }
 
 export async function submitPracticeAnswer(

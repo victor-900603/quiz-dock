@@ -34,6 +34,7 @@ export type PracticeSession = {
   totalQuestions: number
   answeredCount: number
   correctCount: number
+  sourceSessionId: string | null
   startedAt: string
   completedAt: string | null
   updatedAt: string
@@ -56,6 +57,9 @@ export type PracticeProgress = {
   answered: number
   correct: number
   total: number
+  sourceSessionId: string | null
+  startedAt: string
+  completedAt: string | null
   updatedAt: string
 }
 

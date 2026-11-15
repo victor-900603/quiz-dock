@@ -117,6 +117,7 @@ export type Database = {
           mode: string
           question_order: string[]
           set_id: string
+          source_session_id: string | null
           started_at: string
           status: string
           total_questions: number
@@ -132,6 +133,7 @@ export type Database = {
           mode: string
           question_order: string[]
           set_id: string
+          source_session_id?: string | null
           started_at?: string
           status?: string
           total_questions: number
@@ -147,6 +149,7 @@ export type Database = {
           mode?: string
           question_order?: string[]
           set_id?: string
+          source_session_id?: string | null
           started_at?: string
           status?: string
           total_questions?: number
@@ -159,6 +162,13 @@ export type Database = {
             columns: ["set_id"]
             isOneToOne: false
             referencedRelation: "quiz_sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_sessions_source_session_id_fkey"
+            columns: ["source_session_id"]
+            isOneToOne: false
+            referencedRelation: "practice_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -386,7 +396,12 @@ export type Database = {
     }
     Functions: {
       start_practice_session: {
-        Args: { p_mode?: string; p_restart?: boolean; p_set_id: string }
+        Args: {
+          p_limit?: number
+          p_mode?: string
+          p_set_id: string
+          p_source_session_id?: string | null
+        }
         Returns: {
           answered_count: number
           completed_at: string | null
@@ -396,6 +411,7 @@ export type Database = {
           mode: string
           question_order: string[]
           set_id: string
+          source_session_id: string | null
           started_at: string
           status: string
           total_questions: number
@@ -439,6 +455,7 @@ export type Database = {
           mode: string
           question_order: string[]
           set_id: string
+          source_session_id: string | null
           started_at: string
           status: string
           total_questions: number

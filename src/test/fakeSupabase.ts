@@ -517,6 +517,11 @@ export class FakeQuery implements PromiseLike<FakeResult> {
       this.owner.tables.attempts = this.owner.tables.attempts.filter(
         (row) => !deletedIds.has(String(row.session_id)),
       )
+      for (const row of this.owner.tables.practice_sessions) {
+        if (deletedIds.has(String(row.source_session_id))) {
+          row.source_session_id = null
+        }
+      }
     }
   }
 
@@ -583,47 +588,66 @@ export function createFakeSupabase(seed: Partial<FakeTables> = {}): FakeSupabase
   function startPracticeSession(args: Record<string, unknown>): FakeResult {
     const setId = asString(args.p_set_id)
     const mode = args.p_mode === 'random' ? 'random' : 'sequential'
-    const restart = args.p_restart === true
+    const sourceSessionId =
+      typeof args.p_source_session_id === 'string'
+        ? args.p_source_session_id
+        : null
+    const limit =
+      typeof args.p_limit === 'number' && args.p_limit > 0
+        ? Math.floor(args.p_limit)
+        : null
     const set = tables.quiz_sets.find((row) => row.id === setId)
 
     if (!set) return { data: null, error: { message: 'set not found' } }
 
-    const questions = tables.questions
+    const existing = tables.practice_sessions.find(
+      (row) => row.set_id === setId && row.status === 'in_progress',
+    )
+    if (existing) {
+      return { data: { ...existing }, error: null }
+    }
+
+    if (sourceSessionId) {
+      const source = tables.practice_sessions.find(
+        (row) => row.id === sourceSessionId && row.set_id === setId,
+      )
+      if (!source) {
+        return { data: null, error: { message: 'source session not found' } }
+      }
+    }
+
+    let questions = tables.questions
       .filter((row) => row.set_id === setId)
       .sort((left, right) => Number(left.sort_order) - Number(right.sort_order))
 
+    if (sourceSessionId) {
+      const wrongIds = new Set(
+        tables.attempts
+          .filter(
+            (row) =>
+              row.session_id === sourceSessionId && row.is_correct === false,
+          )
+          .map((row) => String(row.question_id)),
+      )
+      questions = questions.filter((row) => wrongIds.has(String(row.id)))
+    }
+
     if (questions.length === 0) {
-      return { data: null, error: { message: 'set has no questions' } }
+      return {
+        data: null,
+        error: {
+          message: sourceSessionId
+            ? 'source session has no wrong answers'
+            : 'set has no questions',
+        },
+      }
     }
 
-    const existing = tables.practice_sessions.find((row) => row.set_id === setId)
-    if (existing && !restart) {
-      return { data: { ...existing }, error: null }
-    }
+    let questionOrder = questions.map((question) => String(question.id))
+    if (mode === 'random') questionOrder = shuffle(questionOrder)
+    if (limit !== null) questionOrder = questionOrder.slice(0, limit)
 
-    const questionOrder =
-      mode === 'random'
-        ? shuffle(questions.map((question) => String(question.id)))
-        : questions.map((question) => String(question.id))
     const now = new Date().toISOString()
-
-    if (existing) {
-      tables.attempts = tables.attempts.filter((row) => row.session_id !== existing.id)
-      Object.assign(existing, {
-        mode,
-        status: 'in_progress',
-        question_order: questionOrder,
-        current_index: 0,
-        total_questions: questionOrder.length,
-        answered_count: 0,
-        correct_count: 0,
-        started_at: now,
-        updated_at: now,
-        completed_at: null,
-      })
-      return { data: { ...existing }, error: null }
-    }
-
     const created: FakeRow = {
       id: fakeId(),
       user_id: TEST_OWNER_ID,
@@ -635,6 +659,7 @@ export function createFakeSupabase(seed: Partial<FakeTables> = {}): FakeSupabase
       total_questions: questionOrder.length,
       answered_count: 0,
       correct_count: 0,
+      source_session_id: sourceSessionId,
       started_at: now,
       updated_at: now,
       completed_at: null,
@@ -760,68 +785,82 @@ export function createFakeSupabase(seed: Partial<FakeTables> = {}): FakeSupabase
 
   function syncPracticeSession(args: Record<string, unknown>): FakeResult {
     const setId = asString(args.p_set_id)
-    const session = tables.practice_sessions.find((row) => row.set_id === setId)
+    const sessions = tables.practice_sessions.filter(
+      (row) => row.set_id === setId,
+    )
 
-    if (!session) return { data: null, error: null }
+    if (sessions.length === 0) return { data: null, error: null }
 
     const setQuestions = tables.questions.filter((row) => row.set_id === setId)
     const questionById = new Map(
       setQuestions.map((question) => [String(question.id), question]),
     )
-    const keptOrder = asStringArray(session.question_order).filter((id) =>
-      questionById.has(id),
-    )
-    const keptIds = new Set(keptOrder)
-    const appended = setQuestions
-      .filter((question) => !keptIds.has(String(question.id)))
-      .sort(
-        (left, right) =>
-          Number(left.sort_order) - Number(right.sort_order) ||
-          String(left.id).localeCompare(String(right.id)),
+    const now = new Date().toISOString()
+    let result: FakeRow | null = null
+
+    for (const session of sessions) {
+      const keptOrder = asStringArray(session.question_order).filter((id) =>
+        questionById.has(id),
       )
-      .map((question) => String(question.id))
-    const order = [...keptOrder, ...appended]
+      const keptIds = new Set(keptOrder)
+      const appended = setQuestions
+        .filter((question) => !keptIds.has(String(question.id)))
+        .sort(
+          (left, right) =>
+            Number(left.sort_order) - Number(right.sort_order) ||
+            String(left.id).localeCompare(String(right.id)),
+        )
+        .map((question) => String(question.id))
+      const order = [...keptOrder, ...appended]
 
-    if (order.length === 0) return { data: { ...session }, error: null }
+      if (order.length === 0) {
+        result = { ...session }
+        continue
+      }
 
-    const sessionAttempts = tables.attempts.filter(
-      (attempt) => attempt.session_id === session.id,
-    )
-
-    for (const attempt of sessionAttempts) {
-      const question = questionById.get(asString(attempt.question_id))
-      if (!question) continue
-      attempt.is_correct = arraysEqual(
-        normalizeAnswers(asStringArray(attempt.selected)),
-        normalizeAnswers(asStringArray(question.correct_answers)),
+      const sessionAttempts = tables.attempts.filter(
+        (attempt) => attempt.session_id === session.id,
       )
+
+      for (const attempt of sessionAttempts) {
+        const question = questionById.get(asString(attempt.question_id))
+        if (!question) continue
+        attempt.is_correct = arraysEqual(
+          normalizeAnswers(asStringArray(attempt.selected)),
+          normalizeAnswers(asStringArray(question.correct_answers)),
+        )
+      }
+
+      const answered = sessionAttempts.length
+      const correct = sessionAttempts.filter(
+        (attempt) => attempt.is_correct === true,
+      ).length
+      const answeredIds = new Set(
+        sessionAttempts.map((attempt) => asString(attempt.question_id)),
+      )
+      const nextIndex = order.findIndex((id) => !answeredIds.has(id))
+      const currentIndex = nextIndex === -1 ? order.length : nextIndex
+      const status =
+        session.status === 'completed' || answered >= order.length
+          ? 'completed'
+          : 'in_progress'
+
+      Object.assign(session, {
+        question_order: order,
+        total_questions: order.length,
+        current_index: currentIndex,
+        answered_count: answered,
+        correct_count: correct,
+        status,
+        completed_at:
+          status === 'completed' ? (session.completed_at ?? now) : null,
+        updated_at: now,
+      })
+
+      result = { ...session }
     }
 
-    const answered = sessionAttempts.length
-    const correct = sessionAttempts.filter(
-      (attempt) => attempt.is_correct === true,
-    ).length
-    const answeredIds = new Set(
-      sessionAttempts.map((attempt) => asString(attempt.question_id)),
-    )
-    const nextIndex = order.findIndex((id) => !answeredIds.has(id))
-    const currentIndex = nextIndex === -1 ? order.length : nextIndex
-    const status = answered >= order.length ? 'completed' : 'in_progress'
-    const now = new Date().toISOString()
-
-    Object.assign(session, {
-      question_order: order,
-      total_questions: order.length,
-      current_index: currentIndex,
-      answered_count: answered,
-      correct_count: correct,
-      status,
-      completed_at:
-        status === 'completed' ? (session.completed_at ?? now) : null,
-      updated_at: now,
-    })
-
-    return { data: { ...session }, error: null }
+    return { data: result, error: null }
   }
 
   const client: FakeSupabase = {

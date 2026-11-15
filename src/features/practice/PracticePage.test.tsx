@@ -51,6 +51,7 @@ function buildDetail(): PracticeSessionDetail {
       totalQuestions: 2,
       answeredCount: 1,
       correctCount: 1,
+      sourceSessionId: null,
       startedAt: '2026-11-15T00:00:00.000Z',
       completedAt: null,
       updatedAt: '2026-11-15T00:00:00.000Z',

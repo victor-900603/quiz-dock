@@ -7,8 +7,11 @@ import {
   type FakeSupabase,
 } from '../../test/fakeSupabase'
 import {
+  deletePracticeSession,
+  deletePracticeSessionsForSet,
   fetchPracticeSession,
   fetchPracticeSessions,
+  finishPracticeSession,
   startPracticeSession,
   submitPracticeAnswer,
 } from './practiceService'
@@ -126,14 +129,13 @@ describe('fetchPracticeSession', () => {
 })
 
 describe('startPracticeSession', () => {
-  it('creates a session and returns the existing row without restarting', async () => {
+  it('creates a session and resumes the active one with its own options', async () => {
     const fake = createFakeSupabase(createSeedTables())
     const client = asClient(fake)
 
     const created = await startPracticeSession(
       'english-collocations',
-      'random',
-      false,
+      { mode: 'random' },
       client,
     )
     expect(created.mode).toBe('random')
@@ -143,25 +145,67 @@ describe('startPracticeSession', () => {
 
     const resumed = await startPracticeSession(
       'english-collocations',
-      'sequential',
-      false,
+      { mode: 'sequential', limit: 3 },
       client,
     )
     expect(resumed.id).toBe(created.id)
     expect(resumed.mode).toBe('random')
+    expect(resumed.totalQuestions).toBe(20)
   })
 
-  it('restarts the same session and clears attempts', async () => {
+  it('limits the question count', async () => {
+    const fake = createFakeSupabase(createSeedTables())
+
+    const created = await startPracticeSession(
+      'english-collocations',
+      { mode: 'sequential', limit: 5 },
+      asClient(fake),
+    )
+
+    expect(created.totalQuestions).toBe(5)
+    expect(created.questionOrder).toHaveLength(5)
+  })
+
+  it('builds a drill from the wrong answers of a source session', async () => {
+    const seed = createSeedTables()
+    seed.attempts[0].is_correct = false
+    seed.practice_sessions[0].status = 'completed'
+    seed.practice_sessions[0].completed_at = '2026-11-14T00:00:00.000Z'
+    const fake = createFakeSupabase(seed)
+
+    const created = await startPracticeSession(
+      'biology',
+      { mode: 'sequential', sourceSessionId: 'session-biology' },
+      asClient(fake),
+    )
+
+    expect(created.sourceSessionId).toBe('session-biology')
+    expect(created.totalQuestions).toBe(1)
+    expect(created.questionOrder).toEqual(['bio-1'])
+  })
+
+  it('starts another session once the previous one is finished', async () => {
     const fake = createFakeSupabase(createSeedTables())
     const client = asClient(fake)
 
-    const restarted = await startPracticeSession('biology', 'sequential', true, client)
-    expect(restarted.id).toBe('session-biology')
-    expect(restarted.answeredCount).toBe(0)
-    expect(restarted.currentIndex).toBe(0)
+    const first = await startPracticeSession(
+      'english-collocations',
+      { mode: 'sequential' },
+      client,
+    )
+    await finishPracticeSession(first.id, client)
+    const second = await startPracticeSession(
+      'english-collocations',
+      { mode: 'sequential' },
+      client,
+    )
 
-    const detail = await fetchPracticeSession(restarted.id, client)
-    expect(detail?.attempts).toHaveLength(0)
+    expect(second.id).not.toBe(first.id)
+    expect(
+      fake.tables.practice_sessions.filter(
+        (row) => row.set_id === 'english-collocations',
+      ),
+    ).toHaveLength(2)
   })
 
   it('reports RPC errors', async () => {
@@ -169,8 +213,51 @@ describe('startPracticeSession', () => {
     fake.failNextRpc('start_practice_session', { message: 'set has no questions' })
 
     await expect(
-      startPracticeSession('biology', 'sequential', false, asClient(fake)),
+      startPracticeSession('biology', { mode: 'sequential' }, asClient(fake)),
     ).rejects.toThrow('無法開始練習，請稍後再試。')
+  })
+})
+
+describe('practice session lifecycle', () => {
+  it('finishes a session without clearing its attempts', async () => {
+    const fake = createFakeSupabase(createSeedTables())
+    const client = asClient(fake)
+
+    const finished = await finishPracticeSession('session-biology', client)
+
+    expect(finished.status).toBe('completed')
+    expect(finished.completedAt).not.toBeNull()
+    expect(finished.answeredCount).toBe(2)
+    expect(fake.tables.attempts).toHaveLength(2)
+  })
+
+  it('deletes a session together with its attempts', async () => {
+    const fake = createFakeSupabase(createSeedTables())
+
+    await deletePracticeSession('session-biology', asClient(fake))
+
+    expect(fake.tables.practice_sessions).toHaveLength(0)
+    expect(fake.tables.attempts).toHaveLength(0)
+  })
+
+  it('clears every session of a set', async () => {
+    const fake = createFakeSupabase(createSeedTables())
+
+    await deletePracticeSessionsForSet('biology', asClient(fake))
+
+    expect(fake.tables.practice_sessions).toHaveLength(0)
+    expect(fake.tables.attempts).toHaveLength(0)
+  })
+
+  it('reports a missing session', async () => {
+    const fake = createFakeSupabase(createSeedTables())
+
+    await expect(
+      deletePracticeSession('missing', asClient(fake)),
+    ).rejects.toThrow('找不到練習紀錄，或沒有刪除權限。')
+    await expect(
+      finishPracticeSession('missing', asClient(fake)),
+    ).rejects.toThrow('找不到練習紀錄，或沒有修改權限。')
   })
 })
 
@@ -180,8 +267,7 @@ describe('submitPracticeAnswer', () => {
     const client = asClient(fake)
     const session = await startPracticeSession(
       'english-collocations',
-      'sequential',
-      false,
+      { mode: 'sequential' },
       client,
     )
     const detail = await fetchPracticeSession(session.id, client)
