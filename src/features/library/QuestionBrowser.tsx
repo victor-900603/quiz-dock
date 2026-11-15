@@ -1,8 +1,7 @@
 import { useDeferredValue, useMemo, useState } from 'react'
 import { ChevronDown, Search, Star } from 'lucide-react'
+import { AnswerReview } from '../../components/AnswerReview'
 import { Button } from '../../components/Button'
-import { ExplanationPanel } from '../../components/ExplanationPanel'
-import { cn } from '../../lib/cn'
 import type { Question } from '../../types/quiz'
 
 const PAGE_SIZE = 20
@@ -134,27 +133,9 @@ export function QuestionBrowser({ questions, markedQuestionIds }: QuestionBrowse
                   <span className="min-w-0 flex-1 leading-6 text-ink">{question.prompt}</span>
                 </summary>
 
-                <div className="mt-2 pl-7">
-                  <ul className="space-y-1.5">
-                    {question.options.map((option) => {
-                      const isAnswer = question.correctAnswers.includes(option.key)
-
-                      return (
-                        <li
-                          key={option.key}
-                          className={cn(
-                            'flex gap-2 text-sm',
-                            isAnswer ? 'font-medium text-correct' : 'text-ink',
-                          )}
-                        >
-                          <span className="font-mono">{option.key}.</span>
-                          <span>{option.text}</span>
-                          {isAnswer && <span className="text-xs">正確答案</span>}
-                        </li>
-                      )
-                    })}
-                  </ul>
-                  <ExplanationPanel
+                <div className="mt-3 pl-3 sm:pl-7">
+                  <AnswerReview
+                    options={question.options}
                     correctAnswers={question.correctAnswers}
                     explanation={question.explanation}
                   />
