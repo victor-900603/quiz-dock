@@ -18,6 +18,8 @@ export type ImportErrorCode =
   | 'FILE_TOO_LARGE'
   | 'TOO_MANY_QUESTIONS'
   | 'DUPLICATE_SOURCE'
+  | 'DUPLICATE_QUESTION_NUMBER'
+  | 'DUPLICATE_QUESTION'
   | 'IMPORT_FAILED'
 
 export type ImportIssue = {
@@ -372,6 +374,54 @@ export function formatImportIssues(issues: ImportIssue[]): string {
     .join('\n')
 }
 
+function dedupeQuestions(questions: NormalizedQuestion[]): {
+  questions: NormalizedQuestion[]
+  issues: ImportIssue[]
+} {
+  const byNumber = new Map<number, NormalizedQuestion>()
+  const numberByHash = new Map<string, number>()
+  const issues: ImportIssue[] = []
+  const unique: NormalizedQuestion[] = []
+
+  for (const question of questions) {
+    const number = question.questionNumber ?? question.sortOrder + 1
+    const existing = byNumber.get(number)
+
+    if (existing) {
+      if (existing.contentHash === question.contentHash) continue
+
+      issues.push(
+        issue(
+          question.sortOrder,
+          'question_number',
+          'DUPLICATE_QUESTION_NUMBER',
+          `題號 ${number} 重複，且內容不同。`,
+        ),
+      )
+      continue
+    }
+
+    const duplicatedNumber = numberByHash.get(question.contentHash)
+    if (duplicatedNumber !== undefined) {
+      issues.push(
+        issue(
+          question.sortOrder,
+          'question',
+          'DUPLICATE_QUESTION',
+          `題號 ${number} 與題號 ${duplicatedNumber} 的內容完全相同。`,
+        ),
+      )
+      continue
+    }
+
+    byNumber.set(number, question)
+    numberByHash.set(question.contentHash, number)
+    unique.push(question)
+  }
+
+  return { questions: unique, issues }
+}
+
 export async function normalizeImport(payload: ImportPayload): Promise<NormalizedImport> {
   const byteLength = new TextEncoder().encode(payload.text).length
   if (byteLength > IMPORT_LIMITS.fileBytes) {
@@ -405,8 +455,18 @@ export async function normalizeImport(payload: ImportPayload): Promise<Normalize
     throw new ImportError(firstCode, '無法匯入題庫，請修正以下問題。', uniqueIssues(issues))
   }
 
+  const deduped = dedupeQuestions(normalizedQuestions)
+  if (deduped.issues.length > 0) {
+    const firstCode = deduped.issues[0].code
+    throw new ImportError(
+      firstCode,
+      '無法匯入題庫，請修正以下問題。',
+      uniqueIssues(deduped.issues),
+    )
+  }
+
   const title = normalizeTitle(payload, wrapped)
-  const contentHashes = normalizedQuestions
+  const contentHashes = deduped.questions
     .map((question) => question.contentHash)
     .sort()
   const sourceHash = await sha256Hex(`${title}${JSON.stringify(contentHashes)}`)
@@ -416,7 +476,7 @@ export async function normalizeImport(payload: ImportPayload): Promise<Normalize
     description: normalizeDescription(wrapped),
     topicLabels: normalizeTopicLabels(wrapped?.topic_labels),
     sourceFilename: payload.fileName.trim() || null,
-    questions: normalizedQuestions,
+    questions: deduped.questions,
     sourceHash,
   }
 }

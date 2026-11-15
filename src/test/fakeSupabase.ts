@@ -22,7 +22,10 @@ export type FakeViewName =
 
 export type FakeSourceName = FakeTableName | FakeViewName
 
-export type FakeRpcName = 'start_practice_session' | 'submit_answer'
+export type FakeRpcName =
+  | 'start_practice_session'
+  | 'submit_answer'
+  | 'sync_practice_session'
 
 export type FakeTables = Record<FakeTableName, FakeRow[]>
 
@@ -755,6 +758,72 @@ export function createFakeSupabase(seed: Partial<FakeTables> = {}): FakeSupabase
     }
   }
 
+  function syncPracticeSession(args: Record<string, unknown>): FakeResult {
+    const setId = asString(args.p_set_id)
+    const session = tables.practice_sessions.find((row) => row.set_id === setId)
+
+    if (!session) return { data: null, error: null }
+
+    const setQuestions = tables.questions.filter((row) => row.set_id === setId)
+    const questionById = new Map(
+      setQuestions.map((question) => [String(question.id), question]),
+    )
+    const keptOrder = asStringArray(session.question_order).filter((id) =>
+      questionById.has(id),
+    )
+    const keptIds = new Set(keptOrder)
+    const appended = setQuestions
+      .filter((question) => !keptIds.has(String(question.id)))
+      .sort(
+        (left, right) =>
+          Number(left.sort_order) - Number(right.sort_order) ||
+          String(left.id).localeCompare(String(right.id)),
+      )
+      .map((question) => String(question.id))
+    const order = [...keptOrder, ...appended]
+
+    if (order.length === 0) return { data: { ...session }, error: null }
+
+    const sessionAttempts = tables.attempts.filter(
+      (attempt) => attempt.session_id === session.id,
+    )
+
+    for (const attempt of sessionAttempts) {
+      const question = questionById.get(asString(attempt.question_id))
+      if (!question) continue
+      attempt.is_correct = arraysEqual(
+        normalizeAnswers(asStringArray(attempt.selected)),
+        normalizeAnswers(asStringArray(question.correct_answers)),
+      )
+    }
+
+    const answered = sessionAttempts.length
+    const correct = sessionAttempts.filter(
+      (attempt) => attempt.is_correct === true,
+    ).length
+    const answeredIds = new Set(
+      sessionAttempts.map((attempt) => asString(attempt.question_id)),
+    )
+    const nextIndex = order.findIndex((id) => !answeredIds.has(id))
+    const currentIndex = nextIndex === -1 ? order.length : nextIndex
+    const status = answered >= order.length ? 'completed' : 'in_progress'
+    const now = new Date().toISOString()
+
+    Object.assign(session, {
+      question_order: order,
+      total_questions: order.length,
+      current_index: currentIndex,
+      answered_count: answered,
+      correct_count: correct,
+      status,
+      completed_at:
+        status === 'completed' ? (session.completed_at ?? now) : null,
+      updated_at: now,
+    })
+
+    return { data: { ...session }, error: null }
+  }
+
   const client: FakeSupabase = {
     from(table) {
       return new FakeQuery(client, table as FakeSourceName)
@@ -768,6 +837,10 @@ export function createFakeSupabase(seed: Partial<FakeTables> = {}): FakeSupabase
 
       if (name === 'start_practice_session') {
         return Promise.resolve(startPracticeSession(args))
+      }
+
+      if (name === 'sync_practice_session') {
+        return Promise.resolve(syncPracticeSession(args))
       }
 
       return Promise.resolve(submitAnswer(args))

@@ -9,6 +9,7 @@ import {
   renameQuizSet,
   type SetDetail,
 } from './libraryService'
+import { syncQuizSet, type SyncResult } from './syncService'
 
 export const libraryKeys = {
   all: ['library'] as const,
@@ -71,6 +72,30 @@ export function useImportSetMutation() {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: libraryKeys.sets() })
       queryClient.invalidateQueries({ queryKey: libraryKeys.set(result.id) })
+    },
+  })
+}
+
+type SyncSetInput = {
+  setId: string
+  payload: ImportPayload
+}
+
+export function useSyncSetMutation() {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation<SyncResult, Error, SyncSetInput>({
+    mutationFn: ({ setId, payload }) => {
+      if (!user) {
+        throw new Error('請先登入再更新題庫。')
+      }
+
+      return syncQuizSet(setId, payload, { ownerId: user.id })
+    },
+    onSuccess: () => {
+      // Questions, attempts, marks, and stats all change in one sync.
+      queryClient.invalidateQueries()
     },
   })
 }

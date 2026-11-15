@@ -293,6 +293,29 @@ describe('normalizeImport', () => {
     )
   })
 
+  it('rejects duplicate question numbers with different content', async () => {
+    const error = await expectImportError(
+      normalizeImport(payload([question(), question({ question: '另一題' })])),
+      'DUPLICATE_QUESTION_NUMBER',
+    )
+
+    expect(formatImportIssues(error.issues)).toContain('題號 1 重複')
+  })
+
+  it('rejects the same content under different question numbers', async () => {
+    const error = await expectImportError(
+      normalizeImport(payload([question(), question({ question_number: 2 })])),
+      'DUPLICATE_QUESTION',
+    )
+
+    expect(formatImportIssues(error.issues)).toContain('內容完全相同')
+  })
+
+  it('keeps an exact duplicate row only once', async () => {
+    const result = await normalizeImport(payload([question(), question()]))
+    expect(result.questions).toHaveLength(1)
+  })
+
   it('collects errors across multiple questions and limits the formatted list', async () => {
     const questions = Array.from({ length: 25 }, (_, index) =>
       question({

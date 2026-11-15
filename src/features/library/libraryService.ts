@@ -140,11 +140,11 @@ export async function fetchSets(client: Client = supabase): Promise<QuizSet[]> {
   return setRows.map((row) => mapSet(row, questionsBySet.get(row.id) ?? []))
 }
 
-export async function fetchSetDetail(
+export async function fetchSetRow(
   setId: string,
   client: Client = supabase,
-): Promise<SetDetail | null> {
-  const { data: setRow, error } = await client
+): Promise<SetRow | null> {
+  const { data, error } = await client
     .from('quiz_sets')
     .select('*')
     .eq('id', setId)
@@ -154,13 +154,18 @@ export async function fetchSetDetail(
     throw new Error(describeSupabaseError(error, '無法載入題庫，請稍後再試。'))
   }
 
-  if (!setRow) return null
+  return data
+}
 
+export async function fetchQuestionRows(
+  setId: string,
+  client: Client = supabase,
+): Promise<QuestionRow[]> {
   const questions: QuestionRow[] = []
   let start = 0
 
   while (true) {
-    const { data: questionRows, error: questionError } = await client
+    const { data, error } = await client
       .from('questions')
       .select('*')
       .eq('set_id', setId)
@@ -168,18 +173,30 @@ export async function fetchSetDetail(
       .order('id', { ascending: true })
       .range(start, start + QUESTION_PAGE_SIZE - 1)
 
-    if (questionError) {
-      throw new Error(describeSupabaseError(questionError, '無法載入題目，請稍後再試。'))
+    if (error) {
+      throw new Error(describeSupabaseError(error, '無法載入題目，請稍後再試。'))
     }
 
-    const page = questionRows ?? []
+    const page = data ?? []
     questions.push(...page)
 
     if (page.length < QUESTION_PAGE_SIZE) break
     start += QUESTION_PAGE_SIZE
   }
 
+  return questions
+}
+
+export async function fetchSetDetail(
+  setId: string,
+  client: Client = supabase,
+): Promise<SetDetail | null> {
+  const setRow = await fetchSetRow(setId, client)
+  if (!setRow) return null
+
+  const questions = await fetchQuestionRows(setId, client)
   const labels = parseTopicLabels(setRow.topic_labels)
+
   return {
     set: mapSet(setRow, questions),
     questions: questions.map((question) => mapQuestion(question, labels)),

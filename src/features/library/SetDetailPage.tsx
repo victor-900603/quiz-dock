@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import {
   ArrowLeft,
   BarChart3,
+  Download,
   ListOrdered,
   Pencil,
   Play,
+  RefreshCw,
   Shuffle,
   Trash2,
 } from 'lucide-react'
@@ -17,12 +19,22 @@ import { Modal } from '../../components/Modal'
 import { PageHeader } from '../../components/PageHeader'
 import { ProgressBar } from '../../components/ProgressBar'
 import { StatCard } from '../../components/StatCard'
+import { SyncDialog } from '../../components/SyncDialog'
 import { TopicCounts } from '../../components/TopicCounts'
+import { downloadTextFile } from '../../lib/download'
 import { formatPercentValue } from '../../lib/format'
+import type { ImportPayload } from '../../schemas/import'
 import type { PracticeMode } from '../../types/quiz'
 import { useMarksQuery } from '../marks/queries'
 import { usePracticeSessionsQuery, useStartPracticeMutation } from '../practice/queries'
-import { useDeleteSetMutation, useRenameSetMutation, useSetQuery } from './queries'
+import { exportQuizSet } from './exportService'
+import {
+  useDeleteSetMutation,
+  useRenameSetMutation,
+  useSetQuery,
+  useSyncSetMutation,
+} from './queries'
+import { previewQuizSetSync } from './syncService'
 
 export function SetDetailPage() {
   const { setId } = useParams()
@@ -33,14 +45,25 @@ export function SetDetailPage() {
   const startMutation = useStartPracticeMutation()
   const renameMutation = useRenameSetMutation()
   const deleteMutation = useDeleteSetMutation()
+  const syncMutation = useSyncSetMutation()
   const [renameOpen, setRenameOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [syncOpen, setSyncOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [pendingAction, setPendingAction] = useState<
     { type: 'mode'; mode: PracticeMode } | { type: 'restart' } | null
   >(null)
   const [renameTitle, setRenameTitle] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
   const [startIntent, setStartIntent] = useState<'mode' | 'restart' | null>(null)
+
+  const buildSyncPlan = useCallback(
+    (payload: ImportPayload) => {
+      if (!setId) throw new Error('找不到題庫。')
+      return previewQuizSetSync(setId, payload)
+    },
+    [setId],
+  )
 
   const set = setQuery.data?.set
   const progress = (sessionsQuery.data ?? []).find((item) => item.setId === set?.id)
@@ -139,6 +162,27 @@ export function SetDetailPage() {
       setDeleteOpen(false)
       setActionError(error instanceof Error ? error.message : '刪除題庫失敗，請稍後再試。')
     }
+  }
+
+  async function handleExport() {
+    if (!set || exporting) return
+
+    setActionError(null)
+    setExporting(true)
+
+    try {
+      const result = await exportQuizSet(set.id)
+      downloadTextFile(result.fileName, result.text)
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : '匯出題庫失敗，請稍後再試。')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  async function handleSync(payload: ImportPayload) {
+    if (!set) return
+    await syncMutation.mutateAsync({ setId: set.id, payload })
   }
 
   if (setQuery.isPending) {
@@ -330,6 +374,18 @@ export function SetDetailPage() {
       <Card className="mt-6 p-5 sm:p-6">
         <h2 className="font-serif text-xl text-ink">題庫操作</h2>
         <div className="mt-4 flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => setSyncOpen(true)}>
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            更新題庫
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => void handleExport()}
+            loading={exporting}
+          >
+            <Download className="h-4 w-4" aria-hidden="true" />
+            匯出 JSON
+          </Button>
           <Button variant="secondary" onClick={openRename}>
             <Pencil className="h-4 w-4" aria-hidden="true" />
             重新命名
@@ -345,7 +401,7 @@ export function SetDetailPage() {
           </p>
         )}
         <p className="mt-3 text-xs leading-5 text-muted">
-          P0 不顯示完整題目列表，避免一次載入大量題目。
+          更新題庫以題號比對題目，會保留未變動題目的作答進度；匯出的 JSON 可直接作為更新來源。
         </p>
       </Card>
 
@@ -381,6 +437,14 @@ export function SetDetailPage() {
           className="mt-2 w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-sm text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
         />
       </Modal>
+
+      <SyncDialog
+        open={syncOpen}
+        setTitle={set.title}
+        onClose={() => setSyncOpen(false)}
+        buildPlan={buildSyncPlan}
+        onSync={handleSync}
+      />
 
       <ConfirmDialog
         open={pendingAction !== null}

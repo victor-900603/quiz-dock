@@ -199,7 +199,7 @@ export type Database = {
           options: Json
           owner_id: string
           question: string
-          question_number: number | null
+          question_number: number
           set_id: string
           sort_order: number
           topic: string | null
@@ -213,7 +213,7 @@ export type Database = {
           options: Json
           owner_id: string
           question: string
-          question_number?: number | null
+          question_number: number
           set_id: string
           sort_order: number
           topic?: string | null
@@ -227,7 +227,7 @@ export type Database = {
           options?: Json
           owner_id?: string
           question?: string
-          question_number?: number | null
+          question_number?: number
           set_id?: string
           sort_order?: number
           topic?: string | null
@@ -427,6 +427,30 @@ export type Database = {
           session_status: string
           was_updated: boolean
         }[]
+      }
+      sync_practice_session: {
+        Args: { p_set_id: string }
+        Returns: {
+          answered_count: number
+          completed_at: string | null
+          correct_count: number
+          current_index: number
+          id: string
+          mode: string
+          question_order: string[]
+          set_id: string
+          started_at: string
+          status: string
+          total_questions: number
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "practice_sessions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {

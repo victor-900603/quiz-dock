@@ -1,10 +1,9 @@
-import { useRef, useState, type DragEvent } from 'react'
-import { ClipboardPaste, FileJson, UploadCloud } from 'lucide-react'
+import { useState } from 'react'
 import { Button } from './Button'
+import { JsonSourcePicker, type JsonSourceValue } from './JsonSourcePicker'
 import { Modal } from './Modal'
-import { cn } from '../lib/cn'
 import { parseImportPreview, type ImportPreview } from '../lib/importPreview'
-import { IMPORT_LIMITS, type ImportPayload } from '../schemas/import'
+import type { ImportPayload } from '../schemas/import'
 
 type ImportDialogProps = {
   open: boolean
@@ -12,24 +11,22 @@ type ImportDialogProps = {
   onImport: (payload: ImportPayload) => Promise<void> | void
 }
 
-type Tab = 'file' | 'paste'
+const JSON_PLACEHOLDER =
+  '[{"question_number": 1, "topic": 1, "question": "...", "options": {...}, "correct_answers": ["A"], "explanation": "..."}]'
 
 export function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
-  const [tab, setTab] = useState<Tab>('file')
-  const [text, setText] = useState('')
-  const [fileName, setFileName] = useState('')
+  const [source, setSource] = useState({ text: '', fileName: '' })
   const [preview, setPreview] = useState<ImportPreview | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [resetKey, setResetKey] = useState(0)
 
   function reset() {
-    setTab('file')
-    setText('')
-    setFileName('')
+    setSource({ text: '', fileName: '' })
     setPreview(null)
     setError(null)
     setSubmitting(false)
+    setResetKey((value) => value + 1)
   }
 
   function handleClose() {
@@ -38,43 +35,24 @@ export function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
     onClose()
   }
 
-  function applyText(value: string, sourceName = '') {
-    setText(value)
-    if (!value.trim()) {
+  function applySource(next: JsonSourceValue) {
+    setSource({ text: next.text, fileName: next.fileName })
+
+    if (next.error) {
+      setPreview(null)
+      setError(next.error)
+      return
+    }
+
+    if (!next.text.trim()) {
       setPreview(null)
       setError(null)
       return
     }
 
-    if (new TextEncoder().encode(value).length > IMPORT_LIMITS.fileBytes) {
-      setPreview(null)
-      setError('檔案過大，請確認檔案小於 10MB。')
-      return
-    }
-
-    const result = parseImportPreview(value, sourceName)
+    const result = parseImportPreview(next.text, next.fileName)
     setPreview(result.preview)
     setError(result.error)
-  }
-
-  async function handleFile(file: File) {
-    setFileName(file.name)
-
-    if (file.size > IMPORT_LIMITS.fileBytes) {
-      setText('')
-      setPreview(null)
-      setError('檔案過大，請確認檔案小於 10MB。')
-      return
-    }
-
-    const content = await file.text()
-    applyText(content, file.name)
-  }
-
-  function handleDrop(event: DragEvent<HTMLButtonElement>) {
-    event.preventDefault()
-    const file = event.dataTransfer.files[0]
-    if (file) void handleFile(file)
   }
 
   async function handleImport() {
@@ -85,8 +63,8 @@ export function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
 
     try {
       await onImport({
-        text,
-        fileName,
+        text: source.text,
+        fileName: source.fileName,
         title: preview.title.trim() || '未命名題庫',
       })
       setSubmitting(false)
@@ -120,79 +98,14 @@ export function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
         </>
       }
     >
-      <div className="flex gap-1 rounded-lg border border-line bg-paper p-1" role="tablist" aria-label="匯入方式">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'file'}
-          onClick={() => setTab('file')}
-          className={cn(
-            'flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md px-3 text-sm transition-colors',
-            tab === 'file' ? 'bg-surface text-ink shadow-card' : 'text-muted hover:text-ink',
-          )}
-        >
-          <FileJson className="h-4 w-4" aria-hidden="true" />
-          上傳檔案
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'paste'}
-          onClick={() => setTab('paste')}
-          className={cn(
-            'flex min-h-10 flex-1 items-center justify-center gap-2 rounded-md px-3 text-sm transition-colors',
-            tab === 'paste' ? 'bg-surface text-ink shadow-card' : 'text-muted hover:text-ink',
-          )}
-        >
-          <ClipboardPaste className="h-4 w-4" aria-hidden="true" />
-          貼上 JSON
-        </button>
-      </div>
-
-      {tab === 'file' ? (
-        <div className="mt-4">
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".json,application/json"
-            className="sr-only"
-            onChange={(event) => {
-              const file = event.target.files?.[0]
-              if (file) void handleFile(file)
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={handleDrop}
-            className="flex w-full flex-col items-center justify-center rounded-lg border border-dashed border-line bg-paper px-5 py-10 text-center transition-colors hover:border-accent/60 hover:bg-accent-soft/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <UploadCloud className="h-7 w-7 text-muted" aria-hidden="true" />
-            <span className="mt-3 text-sm font-medium text-ink">選擇 JSON 檔或拖曳到這裡</span>
-            <span className="mt-1 text-xs text-muted">
-              {fileName || '支援單一題庫檔，最大 10MB'}
-            </span>
-          </button>
-        </div>
-      ) : (
-        <div className="mt-4">
-          <label htmlFor="import-json" className="text-sm font-medium text-ink">
-            JSON 內容
-          </label>
-          <textarea
-            id="import-json"
-            value={text}
-            onChange={(event) => {
-              setFileName('')
-              applyText(event.target.value)
-            }}
-            rows={8}
-            placeholder='[{"question_number": 1, "topic": 1, "question": "...", "options": {...}, "correct_answers": ["A"], "explanation": "..."}]'
-            className="mt-2 w-full resize-y rounded-lg border border-line bg-paper px-3 py-2.5 font-mono text-xs leading-6 text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-          />
-        </div>
-      )}
+      <JsonSourcePicker
+        key={resetKey}
+        text={source.text}
+        fileName={source.fileName}
+        disabled={submitting}
+        placeholder={JSON_PLACEHOLDER}
+        onSourceChange={applySource}
+      />
 
       {error && (
         <p className="mt-4 whitespace-pre-line rounded-lg border border-wrong/30 bg-wrong-soft px-3 py-2 text-sm text-wrong" role="alert">

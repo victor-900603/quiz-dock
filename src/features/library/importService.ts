@@ -20,17 +20,6 @@ type ImportOptions = {
   client?: Client
 }
 
-function uniqueQuestions(
-  questions: Awaited<ReturnType<typeof normalizeImport>>['questions'],
-) {
-  const seen = new Set<string>()
-  return questions.filter((question) => {
-    if (seen.has(question.contentHash)) return false
-    seen.add(question.contentHash)
-    return true
-  })
-}
-
 export async function importQuizSet(
   payload: ImportPayload,
   { ownerId, client = supabase }: ImportOptions,
@@ -75,7 +64,7 @@ export async function importQuizSet(
     )
   }
 
-  const questions = uniqueQuestions(normalized.questions)
+  const questions = normalized.questions
 
   try {
     for (let start = 0; start < questions.length; start += IMPORT_BATCH_SIZE) {
@@ -83,7 +72,7 @@ export async function importQuizSet(
       const rows: QuestionInsert[] = batch.map((question) => ({
         set_id: created.id,
         owner_id: ownerId,
-        question_number: question.questionNumber,
+        question_number: question.questionNumber ?? question.sortOrder + 1,
         topic: question.topic,
         question: question.question,
         options: question.options,
