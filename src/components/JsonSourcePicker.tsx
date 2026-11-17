@@ -1,6 +1,7 @@
 import { useId, useRef, useState, type DragEvent } from 'react'
 import { ClipboardPaste, FileJson, UploadCloud } from 'lucide-react'
 import { cn } from '../lib/cn'
+import { decodeTextBytes } from '../lib/csvImport'
 import { IMPORT_LIMITS } from '../schemas/import'
 
 export type JsonSourceValue = {
@@ -60,7 +61,10 @@ export function JsonSourcePicker({
       return
     }
 
-    const content = await file.text()
+    const content =
+      typeof file.arrayBuffer === 'function'
+        ? decodeTextBytes(await file.arrayBuffer())
+        : await file.text()
     applyText(content, file.name)
   }
 
@@ -105,7 +109,7 @@ export function JsonSourcePicker({
           )}
         >
           <ClipboardPaste className="h-4 w-4" aria-hidden="true" />
-          貼上 JSON
+          貼上內容
         </button>
       </div>
 
@@ -114,7 +118,7 @@ export function JsonSourcePicker({
           <input
             ref={inputRef}
             type="file"
-            accept=".json,application/json"
+            accept=".json,.csv,.tsv,application/json,text/csv,text/tab-separated-values"
             className="sr-only"
             disabled={disabled}
             onChange={(event) => {
@@ -132,17 +136,17 @@ export function JsonSourcePicker({
           >
             <UploadCloud className="h-7 w-7 text-muted" aria-hidden="true" />
             <span className="mt-3 text-sm font-medium text-ink">
-              選擇 JSON 檔或拖曳到這裡
+              選擇題庫檔或拖曳到這裡
             </span>
             <span className="mt-1 text-xs text-muted">
-              {fileName || '支援單一題庫檔，最大 10MB'}
+              {fileName || '支援 JSON、CSV 與 TSV，最大 10MB'}
             </span>
           </button>
         </div>
       ) : (
         <div className="mt-4">
           <label htmlFor={textareaId} className="text-sm font-medium text-ink">
-            JSON 內容
+            內容
           </label>
           <textarea
             id={textareaId}

@@ -1,7 +1,18 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { HelpCircle } from 'lucide-react'
 import { Button } from './Button'
+import { CsvMappingFields } from './CsvMappingFields'
+import { ImportHelpDialog } from './ImportHelpDialog'
 import { JsonSourcePicker, type JsonSourceValue } from './JsonSourcePicker'
 import { Modal } from './Modal'
+import {
+  buildCsvQuestions,
+  detectFormat,
+  guessCsvMapping,
+  parseCsv,
+  type CsvMapping,
+  type RawCsvTable,
+} from '../lib/csvImport'
 import { parseImportPreview, type ImportPreview } from '../lib/importPreview'
 import type { ImportPayload } from '../schemas/import'
 
@@ -14,56 +25,144 @@ type ImportDialogProps = {
 const JSON_PLACEHOLDER =
   '[{"question_number": 1, "topic": 1, "question": "...", "options": {...}, "correct_answers": ["A"], "explanation": "..."}]'
 
+const PREVIEW_DELAY_MS = 250
+
 export function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
-  const [source, setSource] = useState({ text: '', fileName: '' })
+  const [source, setSource] = useState<JsonSourceValue>({
+    text: '',
+    fileName: '',
+    error: null,
+  })
+  const [table, setTable] = useState<RawCsvTable | null>(null)
+  const [mapping, setMapping] = useState<CsvMapping | null>(null)
+  const [importText, setImportText] = useState('')
   const [preview, setPreview] = useState<ImportPreview | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [checking, setChecking] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   const [resetKey, setResetKey] = useState(0)
 
   function reset() {
-    setSource({ text: '', fileName: '' })
+    setSource({ text: '', fileName: '', error: null })
+    setTable(null)
+    setMapping(null)
+    setImportText('')
     setPreview(null)
     setError(null)
     setSubmitting(false)
+    setChecking(false)
+    setHelpOpen(false)
     setResetKey((value) => value + 1)
   }
 
   function handleClose() {
     if (submitting) return
+    if (helpOpen) {
+      setHelpOpen(false)
+      return
+    }
     reset()
     onClose()
   }
 
   function applySource(next: JsonSourceValue) {
-    setSource({ text: next.text, fileName: next.fileName })
-
+    setSource(next)
     if (next.error) {
       setPreview(null)
       setError(next.error)
-      return
     }
-
-    if (!next.text.trim()) {
-      setPreview(null)
-      setError(null)
-      return
-    }
-
-    const result = parseImportPreview(next.text, next.fileName)
-    setPreview(result.preview)
-    setError(result.error)
   }
 
+  useEffect(() => {
+    if (!open) return
+
+    if (source.error || !source.text.trim()) {
+      setTable(null)
+      setMapping(null)
+      return
+    }
+
+    if (detectFormat(source.fileName, source.text) !== 'csv') {
+      setTable(null)
+      setMapping(null)
+      return
+    }
+
+    const parsed = parseCsv(source.text)
+    setTable(parsed)
+    setMapping(parsed ? guessCsvMapping(parsed) : null)
+
+    if (!parsed) {
+      setPreview(null)
+      setError('CSV 沒有可匯入的資料列。')
+      setChecking(false)
+    }
+  }, [open, source])
+
+  useEffect(() => {
+    if (!open) return
+
+    if (source.error) {
+      setPreview(null)
+      setError(source.error)
+      setChecking(false)
+      return
+    }
+
+    if (!source.text.trim()) {
+      setPreview(null)
+      setError(null)
+      setChecking(false)
+      return
+    }
+
+    const isCsv = detectFormat(source.fileName, source.text) === 'csv'
+    if (isCsv && (!table || !mapping)) return
+
+    let text = source.text
+
+    if (isCsv && table && mapping) {
+      const built = buildCsvQuestions(table, mapping)
+      if (built.error) {
+        setPreview(null)
+        setError(built.error)
+        setChecking(false)
+        return
+      }
+
+      text = JSON.stringify({ questions: built.questions })
+    }
+
+    setImportText(text)
+    setPreview(null)
+    setChecking(true)
+
+    let active = true
+    const timer = window.setTimeout(() => {
+      void parseImportPreview(text, source.fileName).then((result) => {
+        if (!active) return
+        setPreview(result.preview)
+        setError(result.error)
+        setChecking(false)
+      })
+    }, PREVIEW_DELAY_MS)
+
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [open, source, table, mapping])
+
   async function handleImport() {
-    if (!preview || submitting) return
+    if (!preview || submitting || checking) return
 
     setSubmitting(true)
     setError(null)
 
     try {
       await onImport({
-        text: source.text,
+        text: importText,
         fileName: source.fileName,
         title: preview.title.trim() || '未命名題庫',
       })
@@ -76,28 +175,44 @@ export function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
     }
   }
 
+  const isCsv = detectFormat(source.fileName, source.text) === 'csv'
+
   return (
-    <Modal
-      open={open}
-      onClose={handleClose}
-      title="匯入題庫"
-      description="上傳 JSON 檔或貼上內容，確認題數與主題後建立題庫。"
-      className="max-w-2xl"
-      footer={
-        <>
-          <Button variant="secondary" onClick={handleClose} disabled={submitting}>
-            取消
-          </Button>
-          <Button
-            onClick={() => void handleImport()}
-            disabled={!preview || submitting}
-            loading={submitting}
+    <>
+      <Modal
+        open={open}
+        onClose={handleClose}
+        title="匯入題庫"
+        description="上傳 JSON、CSV 或 TSV 檔，或貼上內容，確認題數與主題後建立題庫。"
+        className="max-w-2xl"
+        footer={
+          <>
+            <Button variant="secondary" onClick={handleClose} disabled={submitting}>
+              取消
+            </Button>
+            <Button
+              onClick={() => void handleImport()}
+              disabled={!preview || submitting || checking}
+              loading={submitting}
+            >
+              {submitting ? '匯入中...' : '開始匯入'}
+            </Button>
+          </>
+        }
+      >
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="text-xs text-muted">支援 JSON、CSV 與 TSV</p>
+          <button
+            type="button"
+            aria-label="匯入說明"
+            aria-haspopup="dialog"
+            onClick={() => setHelpOpen(true)}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-muted transition-colors hover:border-accent/50 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
-            {submitting ? '匯入中...' : '開始匯入'}
-          </Button>
-        </>
-      }
-    >
+            <HelpCircle className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
+
       <JsonSourcePicker
         key={resetKey}
         text={source.text}
@@ -106,6 +221,15 @@ export function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
         placeholder={JSON_PLACEHOLDER}
         onSourceChange={applySource}
       />
+
+      {isCsv && table && mapping && (
+        <CsvMappingFields
+          table={table}
+          mapping={mapping}
+          disabled={submitting}
+          onChange={setMapping}
+        />
+      )}
 
       {error && (
         <p className="mt-4 whitespace-pre-line rounded-lg border border-wrong/30 bg-wrong-soft px-3 py-2 text-sm text-wrong" role="alert">
@@ -164,6 +288,12 @@ export function ImportDialog({ open, onClose, onImport }: ImportDialogProps) {
           </p>
         </div>
       )}
-    </Modal>
+      </Modal>
+
+      <ImportHelpDialog
+        open={open && helpOpen}
+        onClose={() => setHelpOpen(false)}
+      />
+    </>
   )
 }

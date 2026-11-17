@@ -1,8 +1,8 @@
 # QuizDock
 
-個人題庫練習網站。把 JSON 題庫變成可跨裝置練習的網站，提供即時解析、標記與正確率統計，並可安裝為 PWA。
+個人題庫練習網站。把 JSON、CSV 題庫變成可跨裝置練習的網站，提供即時解析、標記與正確率統計，並可安裝為 PWA。
 
-目前狀態：P0 已完成。前端部署於 GitHub Pages，登入、題庫列表、題庫詳情、JSON 匯入、重新命名、刪除、練習流程、作答紀錄、標記與統計全部使用 Supabase。題庫可匯出為 JSON，也能以題號為身分上傳新版內容，保留未變動題目的練習進度。題庫詳情可進入獨立的題目瀏覽頁，以題幹、選項、解析或題號搜尋並展開查看答案。每個題庫保留多場練習紀錄，開始練習時可選擇全部題目或某次練習的錯題、依序或隨機、全部或自訂題數。正式站不含 mock 資料；測試使用獨立的 fake Supabase 與題庫 fixture。P0 不開放公開註冊，帳號由站長建立。
+目前狀態：P0 已完成。前端部署於 GitHub Pages，登入、題庫列表、題庫詳情、JSON／CSV 匯入、重新命名、刪除、練習流程、作答紀錄、標記與統計全部使用 Supabase。題庫可匯出為 JSON，也能以題號為身分上傳新版內容，保留未變動題目的練習進度。匯入支援常見欄位別名、多種選項與答案寫法，CSV/TSV 可自行對應欄位。題庫詳情可進入獨立的題目瀏覽頁，以題幹、選項、解析或題號搜尋並展開查看答案。每個題庫保留多場練習紀錄，開始練習時可選擇全部題目或某次練習的錯題、依序或隨機、全部或自訂題數。正式站不含 mock 資料；測試使用獨立的 fake Supabase 與題庫 fixture。P0 不開放公開註冊，帳號由站長建立。
 
 正式站：`https://victor-900603.github.io/quiz-dock/`
 
@@ -58,7 +58,7 @@ Service Worker 只在 production build 產生。本機驗證請執行 `npm run b
 
 - [`docs/setup.md`](docs/setup.md)：Supabase 專案、migration、Auth、環境變數與 RLS smoke test。
 - [`docs/database.md`](docs/database.md)：資料表、view、RPC、RLS 與 migration 順序。
-- [`docs/import-format.md`](docs/import-format.md)：JSON 匯入格式、欄位規則、錯誤碼、匯出與更新行為。
+- [`docs/import-format.md`](docs/import-format.md)：JSON／CSV／TSV 匯入格式、欄位別名、錯誤碼、匯出與更新行為。
 - [`docs/architecture.md`](docs/architecture.md)：前端分層、路由、資料流、測試與部署。
 
 ## 目錄
@@ -70,7 +70,7 @@ src/data            測試用題庫 fixture
 src/features        頁面與功能模組（auth、library、practice、marks、stats、settings）
 src/lib             共用工具、Supabase client 與 router 工具
 src/pwa             PWA 註冊狀態、安裝提示、離線與更新介面
-src/schemas         JSON 匯入驗證 schema
+src/schemas         匯入驗證 schema
 src/test            測試用 fake Supabase 與 setup
 src/types           型別定義
 public              favicon 與產生的 PWA 圖示

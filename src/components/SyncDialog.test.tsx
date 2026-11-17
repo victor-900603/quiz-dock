@@ -20,8 +20,8 @@ function plan(overrides: Partial<SyncPlan> = {}): SyncPlan {
 }
 
 async function pasteJson(text: string) {
-  await userEvent.click(screen.getByRole('tab', { name: '貼上 JSON' }))
-  fireEvent.change(screen.getByLabelText('JSON 內容'), {
+  await userEvent.click(screen.getByRole('tab', { name: '貼上內容' }))
+  fireEvent.change(screen.getByLabelText('內容'), {
     target: { value: text },
   })
 }

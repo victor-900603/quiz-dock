@@ -163,8 +163,8 @@ describe('App', () => {
     await user.click(await screen.findByRole('button', { name: '匯入題庫' }))
     const dialog = await screen.findByRole('dialog', { name: '匯入題庫' })
 
-    await user.click(within(dialog).getByRole('tab', { name: '貼上 JSON' }))
-    fireEvent.change(within(dialog).getByLabelText('JSON 內容'), {
+    await user.click(within(dialog).getByRole('tab', { name: '貼上內容' }))
+    fireEvent.change(within(dialog).getByLabelText('內容'), {
       target: {
         value: JSON.stringify({
           title: '測試題庫',

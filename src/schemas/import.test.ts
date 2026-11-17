@@ -233,7 +233,7 @@ describe('normalizeImport', () => {
     expect(blankKey.message).toContain('選項鍵不可空白')
 
     await expectImportError(
-      normalizeImport(payload([question({ options: ['A', 'B'] })])),
+      normalizeImport(payload([question({ options: 123 })])),
       'INVALID_OPTIONS',
     )
   })
@@ -314,6 +314,154 @@ describe('normalizeImport', () => {
   it('keeps an exact duplicate row only once', async () => {
     const result = await normalizeImport(payload([question(), question()]))
     expect(result.questions).toHaveLength(1)
+  })
+
+  it('accepts common field aliases and derives option keys', async () => {
+    const result = await normalizeImport(
+      payload({
+        name: '別名題庫',
+        items: [
+          {
+            stem: '題幹內容',
+            choices: ['甲', '乙', '丙'],
+            answer: 'C',
+            rationale: '解析內容',
+            subject: '細胞',
+          },
+        ],
+      }),
+    )
+
+    expect(result.title).toBe('別名題庫')
+    expect(result.questions[0]).toMatchObject({
+      question: '題幹內容',
+      correctAnswers: ['C'],
+      explanation: '解析內容',
+      topic: '細胞',
+      questionNumber: 1,
+    })
+    expect(result.questions[0].options).toEqual([
+      { key: 'A', text: '甲' },
+      { key: 'B', text: '乙' },
+      { key: 'C', text: '丙' },
+    ])
+  })
+
+  it('resolves answers written as option text or multiple tokens', async () => {
+    const byText = await normalizeImport(
+      payload([
+        {
+          question: '答案用文字',
+          options: { A: '細胞核', B: '粒線體' },
+          correct_answers: '粒線體',
+        },
+      ]),
+    )
+    expect(byText.questions[0].correctAnswers).toEqual(['B'])
+
+    const multiple = await normalizeImport(
+      payload([
+        {
+          question: '多選',
+          options: { A: '甲', B: '乙', C: '丙' },
+          correct_answers: 'A、C',
+        },
+      ]),
+    )
+    expect(multiple.questions[0].correctAnswers).toEqual(['A', 'C'])
+  })
+
+  it('resolves numeric answers by key first and then by position', async () => {
+    const byKey = await normalizeImport(
+      payload([
+        {
+          question: '數字鍵',
+          options: { '1': '甲', '2': '乙' },
+          correct_answers: 2,
+        },
+      ]),
+    )
+    expect(byKey.questions[0].correctAnswers).toEqual(['2'])
+
+    const byPosition = await normalizeImport(
+      payload([
+        {
+          question: '位置',
+          options: { A: '甲', B: '乙', C: '丙' },
+          correct_answers: 2,
+        },
+      ]),
+    )
+    expect(byPosition.questions[0].correctAnswers).toEqual(['B'])
+
+    await expectImportError(
+      normalizeImport(
+        payload([
+          {
+            question: '超出範圍',
+            options: { A: '甲', B: '乙' },
+            correct_answers: 5,
+          },
+        ]),
+      ),
+      'INVALID_CORRECT_ANSWERS',
+    )
+  })
+
+  it('derives answers from correctness flags and boolean maps', async () => {
+    const flaggedOptions = await normalizeImport(
+      payload([
+        {
+          question: '選項標記',
+          options: [
+            { text: '甲', correct: false },
+            { text: '乙', correct: true },
+          ],
+        },
+      ]),
+    )
+    expect(flaggedOptions.questions[0].options).toEqual([
+      { key: 'A', text: '甲' },
+      { key: 'B', text: '乙' },
+    ])
+    expect(flaggedOptions.questions[0].correctAnswers).toEqual(['B'])
+
+    const booleanMap = await normalizeImport(
+      payload([
+        {
+          question: '布林對應',
+          options: { A: '甲', B: '乙', C: '丙' },
+          correct_answers: { A: true, B: false, C: true },
+        },
+      ]),
+    )
+    expect(booleanMap.questions[0].correctAnswers).toEqual(['A', 'C'])
+  })
+
+  it('accepts nested envelopes and a byte order mark', async () => {
+    const nested = await normalizeImport(
+      payload({
+        quiz: {
+          title: '巢狀題庫',
+          questions: [question()],
+        },
+      }),
+    )
+    expect(nested.title).toBe('巢狀題庫')
+    expect(nested.questions).toHaveLength(1)
+
+    const withBom = await normalizeImport(
+      payload(`\ufeff${JSON.stringify([question()])}`),
+    )
+    expect(withBom.questions).toHaveLength(1)
+  })
+
+  it('rejects an invalid question number instead of renumbering', async () => {
+    const error = await expectImportError(
+      normalizeImport(payload([question({ question_number: 'abc' })])),
+      'INVALID_QUESTION',
+    )
+    expect(error.message).toContain('題號必須是正整數')
   })
 
   it('collects errors across multiple questions and limits the formatted list', async () => {

@@ -68,11 +68,13 @@ src/main.tsx
 - `router.ts`：依 GitHub Pages 的 base path 計算 router basename。
 - `dates.ts`、`format.ts`、`cn.ts`：日期、格式化與 class 合併工具。
 - `download.ts`：以 Blob 與暫存連結下載文字檔。
-- `importPreview.ts`：匯入前的寬鬆預覽解析。
+- `importSource.ts`：解析 JSON 外層結構、題目欄位別名與選項鍵。
+- `csvImport.ts`：解碼 CSV/TSV、偵測分隔符、猜測欄位對應並轉成題目物件。
+- `importPreview.ts`：以正式驗證流程產生匯入預覽，與實際匯入共用規則。
 
 ### `src/components`
 
-跨頁面重用的介面元件，例如 `AppShell`、`Button`、`Card`、`Modal`、`QuestionCard`、`QuestionNavigator`、`StatCard`。`AnswerReview` 統一題目檢視時的選項與解析樣式，供已標記題目與題目瀏覽共用；`ImportDialog` 與 `SyncDialog` 共用 `JsonSourcePicker` 處理檔案上傳與貼上 JSON；`StartPracticeDialog` 選擇練習範圍、順序與題數；`ActionMenu` 將列表項目的次要操作收合為單一選單。
+跨頁面重用的介面元件，例如 `AppShell`、`Button`、`Card`、`Modal`、`QuestionCard`、`QuestionNavigator`、`StatCard`。`AnswerReview` 統一題目檢視時的選項與解析樣式，供已標記題目與題目瀏覽共用；`ImportDialog` 與 `SyncDialog` 共用 `JsonSourcePicker` 處理檔案上傳與貼上內容；`ImportDialog` 以 `CsvMappingFields` 讓使用者對應 CSV/TSV 欄位，右上角問號按鈕會開啟 `ImportHelpDialog`，以範例說明格式與常見錯誤；`StartPracticeDialog` 選擇練習範圍、順序與題數；`ActionMenu` 將列表項目的次要操作收合為單一選單。
 
 ### `src/pwa`
 
@@ -121,10 +123,12 @@ src/main.tsx
 
 1. `LibraryPage` 使用 `useSetsQuery` 取得題庫列表。
 2. `fetchSets` 讀取 `quiz_sets`，再分頁讀取 `questions` 的主題與數量。
-3. 匯入時 `normalizeImport` 驗證 JSON、計算 `source_hash` 與 `content_hash`。
-4. `importQuizSet` 先檢查重複來源，建立題庫後以每批 200 筆 upsert 題目。
-5. 匯入失敗時刪除剛建立的題庫，避免留下半成品。
-6. mutation 成功後失效 `library` 相關 query。
+3. 匯入時 `JsonSourcePicker` 讀取檔案並解碼；JSON 由 `importSource` 解析外層結構與欄位別名，CSV/TSV 由 `csvImport` 解析表格並讓使用者確認欄位對應。
+4. `normalizeImport` 驗證正規化後的題目、解析選項與答案的多種寫法，並計算 `source_hash` 與 `content_hash`。
+5. 匯入前的預覽直接呼叫同一套驗證，顯示題數、主題與實際錯誤，不再另外維護寬鬆解析。
+6. `importQuizSet` 先檢查重複來源，建立題庫後以每批 200 筆 upsert 題目。
+7. 匯入失敗時刪除剛建立的題庫，避免留下半成品。
+8. mutation 成功後失效 `library` 相關 query。
 
 ### 匯出與更新題庫
 

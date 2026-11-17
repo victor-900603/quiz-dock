@@ -1,5 +1,13 @@
 import { z } from 'zod'
 import type { QuizOption } from '../types/quiz'
+import {
+  QUESTION_FIELD_ALIASES,
+  extractImportSource,
+  isRecord,
+  optionKey,
+  pickField,
+  type RawImportSource,
+} from '../lib/importSource'
 
 export const IMPORT_LIMITS = {
   fileBytes: 10 * 1024 * 1024,
@@ -88,18 +96,7 @@ const questionInputSchema = z.object({
   explanation: z.unknown().optional(),
 })
 
-const envelopeSchema = z.object({
-  title: z.unknown().optional(),
-  description: z.unknown().optional(),
-  topic_labels: z.unknown().optional(),
-  questions: z.array(z.unknown()),
-})
-
 const optionCollator = new Intl.Collator('en', { numeric: true })
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
 
 function issue(
   index: number | null,
@@ -132,44 +129,31 @@ function uniqueIssues(issues: ImportIssue[]): ImportIssue[] {
   })
 }
 
-function parseEnvelope(text: string): {
-  questions: unknown[]
-  wrapped: z.infer<typeof envelopeSchema> | null
-} {
-  let data: unknown
-
-  try {
-    data = JSON.parse(text)
-  } catch {
-    throw new ImportError('INVALID_JSON', '檔案不是有效的 JSON。')
+function parseSource(text: string): RawImportSource {
+  const result = extractImportSource(text)
+  if (!result.ok) {
+    throw result.code === 'INVALID_JSON'
+      ? new ImportError('INVALID_JSON', '檔案不是有效的 JSON。')
+      : new ImportError('INVALID_SHAPE', '格式不符合，請確認最外層結構。')
   }
 
-  if (Array.isArray(data)) {
-    return { questions: data, wrapped: null }
-  }
-
-  const parsed = envelopeSchema.safeParse(data)
-  if (!parsed.success) {
-    throw new ImportError('INVALID_SHAPE', '格式不符合，請確認最外層結構。')
-  }
-
-  return { questions: parsed.data.questions, wrapped: parsed.data }
+  return result.source
 }
 
-function normalizeTitle(payload: ImportPayload, wrapped: z.infer<typeof envelopeSchema> | null): string {
+function normalizeTitle(payload: ImportPayload, source: RawImportSource): string {
   const override = payload.title.trim()
   if (override) return override
 
-  const wrappedTitle = typeof wrapped?.title === 'string' ? wrapped.title.trim() : ''
-  if (wrappedTitle) return wrappedTitle
+  const sourceTitle = typeof source.title === 'string' ? source.title.trim() : ''
+  if (sourceTitle) return sourceTitle
 
-  const fileTitle = payload.fileName.replace(/\.json$/i, '').trim()
+  const fileTitle = payload.fileName.replace(/\.(json|csv|tsv)$/i, '').trim()
   return fileTitle || '未命名題庫'
 }
 
-function normalizeDescription(wrapped: z.infer<typeof envelopeSchema> | null): string | null {
-  if (typeof wrapped?.description !== 'string') return null
-  const description = wrapped.description.trim()
+function normalizeDescription(source: RawImportSource): string | null {
+  if (typeof source.description !== 'string') return null
+  const description = source.description.trim()
   return description || null
 }
 
@@ -187,17 +171,248 @@ function normalizeTopicLabels(value: unknown): Record<string, string> {
   return labels
 }
 
+type CanonicalOptions = {
+  options: unknown
+  derivedAnswers: string[]
+}
+
+function canonicalizeOptions(raw: unknown): CanonicalOptions {
+  if (raw === undefined) {
+    return { options: raw, derivedAnswers: [] }
+  }
+
+  if (Array.isArray(raw)) {
+    if (raw.every((item) => typeof item === 'string')) {
+      return {
+        options: Object.fromEntries(
+          raw.map((text, index) => [optionKey(index), text]),
+        ),
+        derivedAnswers: [],
+      }
+    }
+
+    if (raw.every(isRecord)) {
+      const options: QuizOption[] = []
+      const derivedAnswers: string[] = []
+
+      raw.forEach((item, index) => {
+        const text = item.text ?? item.label ?? item.value
+        const key = item.key ?? item.id ?? optionKey(index)
+        if (typeof text !== 'string' && typeof text !== 'number') return
+
+        options.push({ key: String(key), text: String(text) })
+        if (item.correct === true) derivedAnswers.push(String(key))
+      })
+
+      if (options.length === raw.length) {
+        return { options, derivedAnswers }
+      }
+    }
+
+    return { options: raw, derivedAnswers: [] }
+  }
+
+  if (isRecord(raw)) {
+    const options: Record<string, string> = {}
+    const derivedAnswers: string[] = []
+
+    for (const [key, value] of Object.entries(raw)) {
+      if (typeof value === 'string' || typeof value === 'number') {
+        options[key] = String(value)
+        continue
+      }
+
+      if (isRecord(value)) {
+        const text = value.text ?? value.label ?? value.value
+        if (typeof text !== 'string' && typeof text !== 'number') {
+          return { options: raw, derivedAnswers: [] }
+        }
+
+        options[key] = String(text)
+        if (value.correct === true) derivedAnswers.push(key)
+        continue
+      }
+
+      return { options: raw, derivedAnswers: [] }
+    }
+
+    return { options, derivedAnswers }
+  }
+
+  return { options: raw, derivedAnswers: [] }
+}
+
+type OptionLookup = {
+  keys: string[]
+  keyMap: Map<string, string>
+  textMap: Map<string, string>
+}
+
+function optionLookup(options: unknown): OptionLookup | null {
+  const entries: Array<{ key: unknown; text: unknown }> = []
+
+  if (Array.isArray(options)) {
+    for (const item of options) {
+      if (!isRecord(item)) return null
+      entries.push({ key: item.key, text: item.text })
+    }
+  } else if (isRecord(options)) {
+    for (const [key, text] of Object.entries(options)) {
+      entries.push({ key, text })
+    }
+  } else {
+    return null
+  }
+
+  const lookup: OptionLookup = {
+    keys: [],
+    keyMap: new Map(),
+    textMap: new Map(),
+  }
+  const textCounts = new Map<string, number>()
+
+  for (const entry of entries) {
+    if (typeof entry.key !== 'string' || typeof entry.text !== 'string') continue
+
+    const key = entry.key.trim().toUpperCase()
+    const text = entry.text.trim()
+    lookup.keys.push(key)
+    lookup.keyMap.set(key, key)
+    lookup.textMap.set(text, key)
+    textCounts.set(text, (textCounts.get(text) ?? 0) + 1)
+  }
+
+  for (const [text, count] of textCounts) {
+    if (count > 1) lookup.textMap.delete(text)
+  }
+
+  return lookup
+}
+
+function resolveAnswerToken(
+  value: string,
+  lookup: OptionLookup,
+): string | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  return (
+    lookup.keyMap.get(trimmed.toUpperCase()) ??
+    lookup.textMap.get(trimmed) ??
+    null
+  )
+}
+
+function resolveAnswerTokens(
+  value: string | number,
+  lookup: OptionLookup,
+): string[] | null {
+  if (typeof value === 'number') {
+    if (!Number.isInteger(value)) return null
+
+    const byKey = lookup.keyMap.get(String(value))
+    if (byKey) return [byKey]
+
+    if (value >= 1 && value <= lookup.keys.length) {
+      return [lookup.keys[value - 1]]
+    }
+
+    return null
+  }
+
+  const direct = resolveAnswerToken(value, lookup)
+  if (direct) return [direct]
+
+  const parts = value.split(/[,、;；\s]+/).filter(Boolean)
+  if (parts.length > 1) {
+    const resolved = parts.map((part) => resolveAnswerToken(part, lookup))
+    if (resolved.every((part): part is string => part !== null)) {
+      return resolved
+    }
+  }
+
+  const characters = [...value.trim()]
+  if (characters.length > 1) {
+    const resolved = characters.map((character) =>
+      resolveAnswerToken(character, lookup),
+    )
+    if (resolved.every((part): part is string => part !== null)) {
+      return resolved
+    }
+  }
+
+  return null
+}
+
+function resolveAnswers(raw: unknown, options: unknown): unknown {
+  if (raw === undefined || raw === null) return raw
+
+  if (isRecord(raw)) {
+    const entries = Object.entries(raw)
+    if (entries.every(([, value]) => typeof value === 'boolean')) {
+      return entries.filter(([, value]) => value).map(([key]) => key)
+    }
+
+    return raw
+  }
+
+  const lookup = optionLookup(options)
+  if (!lookup) return raw
+
+  const list = Array.isArray(raw) ? raw : [raw]
+  const resolved: unknown[] = []
+
+  for (const item of list) {
+    if (typeof item === 'string' || typeof item === 'number') {
+      const keys = resolveAnswerTokens(item, lookup)
+      if (keys) {
+        resolved.push(...keys)
+        continue
+      }
+    }
+
+    resolved.push(item)
+  }
+
+  return resolved
+}
+
+function canonicalizeQuestion(raw: Record<string, unknown>): Record<string, unknown> {
+  const canonicalOptions = canonicalizeOptions(
+    pickField(raw, QUESTION_FIELD_ALIASES.options),
+  )
+  const rawAnswers = pickField(raw, QUESTION_FIELD_ALIASES.answers)
+  const answers =
+    rawAnswers !== undefined
+      ? rawAnswers
+      : canonicalOptions.derivedAnswers.length > 0
+        ? canonicalOptions.derivedAnswers
+        : undefined
+
+  return {
+    question: pickField(raw, QUESTION_FIELD_ALIASES.question),
+    options: canonicalOptions.options,
+    correct_answers: resolveAnswers(answers, canonicalOptions.options),
+    question_number: pickField(raw, QUESTION_FIELD_ALIASES.questionNumber),
+    topic: pickField(raw, QUESTION_FIELD_ALIASES.topic),
+    explanation: pickField(raw, QUESTION_FIELD_ALIASES.explanation),
+  }
+}
+
 function normalizeQuestionNumber(value: unknown, index: number): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return Math.trunc(value)
-  }
+  if (value === undefined || value === null) return index + 1
+  if (typeof value === 'string' && value.trim() === '') return index + 1
 
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) return Math.trunc(parsed)
-  }
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number(value.trim())
+        : Number.NaN
 
-  return index + 1
+  if (!Number.isInteger(parsed) || parsed < 1) return null
+
+  return parsed
 }
 
 function normalizeTopic(value: unknown): string | null {
@@ -252,12 +467,21 @@ async function normalizeQuestion(
     }
   }
 
-  const parsed = questionInputSchema.safeParse(raw)
+  const canonical = canonicalizeQuestion(raw)
+  const parsed = questionInputSchema.safeParse(canonical)
   if (!parsed.success) {
     return { question: null, issues: uniqueIssues(zodQuestionIssues(index, parsed.error)) }
   }
 
   const issues: ImportIssue[] = []
+  const questionNumber = normalizeQuestionNumber(
+    parsed.data.question_number,
+    index,
+  )
+  if (questionNumber === null) {
+    issues.push(questionIssue(index, '題號必須是正整數。'))
+  }
+
   const entries = optionEntries(parsed.data.options)
 
   if (entries.length < 2) {
@@ -323,8 +547,8 @@ async function normalizeQuestion(
   }
 
   let explanation: string | null = null
-  if (typeof raw.explanation === 'string') {
-    const trimmed = raw.explanation.trim()
+  if (typeof parsed.data.explanation === 'string') {
+    const trimmed = parsed.data.explanation.trim()
     if (trimmed.length > IMPORT_LIMITS.textLength) {
       issues.push(
         questionIssue(index, `解析不可超過 ${IMPORT_LIMITS.textLength} 字元。`),
@@ -332,7 +556,7 @@ async function normalizeQuestion(
     } else if (trimmed) {
       explanation = trimmed
     }
-  } else if (raw.explanation != null) {
+  } else if (parsed.data.explanation != null) {
     issues.push(questionIssue(index, '解析必須是文字。'))
   }
 
@@ -346,7 +570,7 @@ async function normalizeQuestion(
 
   return {
     question: {
-      questionNumber: normalizeQuestionNumber(parsed.data.question_number, index),
+      questionNumber,
       topic: normalizeTopic(parsed.data.topic),
       question,
       options,
@@ -428,7 +652,8 @@ export async function normalizeImport(payload: ImportPayload): Promise<Normalize
     throw new ImportError('FILE_TOO_LARGE', '檔案過大，請確認檔案小於 10MB。')
   }
 
-  const { questions, wrapped } = parseEnvelope(payload.text)
+  const source = parseSource(payload.text)
+  const questions = source.questions
 
   if (questions.length === 0) {
     throw new ImportError('EMPTY_QUESTIONS', '題庫沒有任何題目。')
@@ -465,7 +690,7 @@ export async function normalizeImport(payload: ImportPayload): Promise<Normalize
     )
   }
 
-  const title = normalizeTitle(payload, wrapped)
+  const title = normalizeTitle(payload, source)
   const contentHashes = deduped.questions
     .map((question) => question.contentHash)
     .sort()
@@ -473,8 +698,8 @@ export async function normalizeImport(payload: ImportPayload): Promise<Normalize
 
   return {
     title,
-    description: normalizeDescription(wrapped),
-    topicLabels: normalizeTopicLabels(wrapped?.topic_labels),
+    description: normalizeDescription(source),
+    topicLabels: normalizeTopicLabels(source.topicLabels),
     sourceFilename: payload.fileName.trim() || null,
     questions: deduped.questions,
     sourceHash,
