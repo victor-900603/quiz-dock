@@ -552,8 +552,8 @@ describe('App', () => {
     expect(await screen.findByRole('heading', { name: '生物學基礎' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '結束本場' }))
 
-    const summaryLink = await screen.findByRole('link', { name: '查看摘要' })
-    await user.click(summaryLink)
+    await user.click(screen.getByRole('button', { name: /的練習操作/ }))
+    await user.click(await screen.findByRole('menuitem', { name: '查看摘要' }))
     expect(await screen.findByRole('heading', { name: '練習完成' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '再練一次' }))
@@ -588,7 +588,8 @@ describe('App', () => {
     renderApp('/sets/biology')
 
     expect(await screen.findByRole('heading', { name: '生物學基礎' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '刪除' }))
+    await user.click(screen.getByRole('button', { name: /的練習操作/ }))
+    await user.click(screen.getByRole('menuitem', { name: '刪除' }))
     const deleteDialog = await screen.findByRole('dialog', { name: '刪除練習紀錄' })
     await user.click(within(deleteDialog).getByRole('button', { name: '刪除' }))
 

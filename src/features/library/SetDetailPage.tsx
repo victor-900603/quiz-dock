@@ -9,6 +9,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { ActionMenu } from '../../components/ActionMenu'
 import { Button, buttonStyles } from '../../components/Button'
 import { Card } from '../../components/Card'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
@@ -382,13 +383,8 @@ export function SetDetailPage() {
       )}
 
       <Card className="mt-6 p-5 sm:p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="font-serif text-xl text-ink">練習紀錄</h2>
-            <p className="mt-1 text-sm text-muted">
-              每次練習都會保留，統計為所有場次累計。
-            </p>
-          </div>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-serif text-xl text-ink">練習紀錄</h2>
           {setSessions.length > 0 && (
             <Button
               variant="ghost"
@@ -401,6 +397,9 @@ export function SetDetailPage() {
             </Button>
           )}
         </div>
+        <p className="mt-1 text-sm text-muted">
+          每次練習都會保留，統計為所有場次累計。
+        </p>
 
         {setSessions.length === 0 ? (
           <p className="mt-4 text-sm text-muted">還沒有練習紀錄。</p>
@@ -435,22 +434,18 @@ export function SetDetailPage() {
                       {formatPercentValue(accuracy)}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Link
-                      to={`/results/${session.id}`}
-                      className={buttonStyles('ghost', 'px-2 text-xs')}
-                    >
-                      查看摘要
-                    </Link>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setSessionToDelete(session)}
-                      className="gap-1 px-2 text-xs text-wrong"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                      刪除
-                    </Button>
-                  </div>
+                  <ActionMenu
+                    className="ml-auto"
+                    label={`${formatShortDateTime(session.startedAt)} 的練習操作`}
+                    items={[
+                      { label: '查看摘要', href: `/results/${session.id}` },
+                      {
+                        label: '刪除',
+                        danger: true,
+                        onSelect: () => setSessionToDelete(session),
+                      },
+                    ]}
+                  />
                 </li>
               )
             })}
@@ -460,7 +455,7 @@ export function SetDetailPage() {
 
       <Card className="mt-6 p-5 sm:p-6">
         <h2 className="font-serif text-xl text-ink">題庫操作</h2>
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
           <Button variant="secondary" onClick={() => setSyncOpen(true)}>
             <RefreshCw className="h-4 w-4" aria-hidden="true" />
             更新題庫

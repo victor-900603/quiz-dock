@@ -72,7 +72,7 @@ src/main.tsx
 
 ### `src/components`
 
-跨頁面重用的介面元件，例如 `AppShell`、`Button`、`Card`、`Modal`、`QuestionCard`、`QuestionNavigator`、`StatCard`。`AnswerReview` 統一題目檢視時的選項與解析樣式，供已標記題目與題目瀏覽共用；`ImportDialog` 與 `SyncDialog` 共用 `JsonSourcePicker` 處理檔案上傳與貼上 JSON；`StartPracticeDialog` 選擇練習範圍、順序與題數。
+跨頁面重用的介面元件，例如 `AppShell`、`Button`、`Card`、`Modal`、`QuestionCard`、`QuestionNavigator`、`StatCard`。`AnswerReview` 統一題目檢視時的選項與解析樣式，供已標記題目與題目瀏覽共用；`ImportDialog` 與 `SyncDialog` 共用 `JsonSourcePicker` 處理檔案上傳與貼上 JSON；`StartPracticeDialog` 選擇練習範圍、順序與題數；`ActionMenu` 將列表項目的次要操作收合為單一選單。
 
 ### `src/pwa`
 

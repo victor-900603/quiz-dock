@@ -160,7 +160,13 @@ export function StartPracticeDialog({
                 <span className="text-muted">（{totalQuestions} 題）</span>
               </span>
             </label>
-            <label className="flex items-start gap-2 text-sm text-ink">
+            <label
+              className={
+                wrongSessions.length === 0
+                  ? 'flex items-start gap-2 text-sm text-muted'
+                  : 'flex items-start gap-2 text-sm text-ink'
+              }
+            >
               <input
                 type="radio"
                 name="practice-scope"
@@ -287,8 +293,8 @@ export function StartPracticeDialog({
                       <Button
                         key={value}
                         type="button"
-                        variant="ghost"
-                        className="min-h-8 px-2 py-1 text-xs"
+                        variant="secondary"
+                        className="min-h-8 px-2.5 py-1 text-xs"
                         onClick={() => {
                           setCustomLimit(String(value))
                           setError('')
