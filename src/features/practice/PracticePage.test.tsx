@@ -162,6 +162,58 @@ describe('PracticePage', () => {
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' })
   })
 
+  it('moves between questions with the desktop controls', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+
+    expect(screen.getByRole('button', { name: '前一題' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '後一題' })).toBeEnabled()
+
+    await user.click(screen.getByRole('button', { name: '後一題' }))
+
+    expect(screen.getByText('題目二')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '前一題' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '後一題' })).toBeDisabled()
+
+    await user.click(screen.getByRole('button', { name: '前一題' }))
+
+    expect(screen.getByText('題目一')).toBeInTheDocument()
+  })
+
+  it('moves between questions with the arrow keys', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+
+    await user.keyboard('{ArrowRight}')
+    expect(screen.getByText('題目二')).toBeInTheDocument()
+
+    await user.keyboard('{ArrowLeft}')
+    expect(screen.getByText('題目一')).toBeInTheDocument()
+  })
+
+  it('ignores arrow keys while editing an answer', async () => {
+    const user = userEvent.setup()
+    mocks.submit.mutateAsync.mockResolvedValue({
+      isCorrect: true,
+      correctAnswers: ['A'],
+      explanation: '解析一',
+      alreadyAnswered: false,
+      wasUpdated: false,
+      sessionStatus: 'in_progress',
+      currentIndex: 1,
+      answeredCount: 1,
+      correctCount: 1,
+    })
+    renderPractice()
+
+    await user.click(screen.getByRole('radio', { name: /A.*甲/ }))
+    await user.click(screen.getByRole('button', { name: '確認答案' }))
+    await user.click(await screen.findByRole('button', { name: '修改答案' }))
+    await user.keyboard('{ArrowRight}')
+
+    expect(screen.getByText('題目一')).toBeInTheDocument()
+  })
+
   it('ignores answer shortcuts while the reading scale dialog is open', async () => {
     const user = userEvent.setup()
     renderPractice()

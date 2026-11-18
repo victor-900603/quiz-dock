@@ -154,7 +154,7 @@ src/main.tsx
 
 1. 題庫詳情頁沒有進行中場次時，「開始練習」開啟 `StartPracticeDialog`，選擇全部題目或某次已完成練習的錯題、依序或隨機、全部或自訂題數。
 2. `start_practice_session` 已有進行中場次時直接回傳；否則驗證來源場次後建立新場次，並記錄 `source_session_id`。
-3. `PracticePage` 依 `question_order` 顯示題目，使用 `submit_answer` 作答。
+3. `PracticePage` 依 `question_order` 顯示題目，使用 `submit_answer` 作答。手機以底部工具列換題；桌機在題目卡上方以同一列顯示「前一題」、題號入口與「後一題」，鍵盤左右方向鍵也可切換（編輯答案或開啟題號列表時停用方向鍵）。
 4. `submit_answer` 在同一交易內新增或更新 attempt，並重算該場次計數與狀態。
 5. 前端收到結果後直接更新 session cache，再失效練習列表。
 6. 若帳號偏好開啟「答錯時自動標記」、本題答錯且尚未標記，前端另外呼叫標記 mutation；結果以 `question_marks` 為準，不影響作答流程，失敗時僅顯示提示。

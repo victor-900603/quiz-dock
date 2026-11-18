@@ -422,6 +422,18 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
 
       if (readingScaleOpen) return
 
+      if (!navigatorOpen && !editing && event.key === 'ArrowLeft') {
+        event.preventDefault()
+        handlePreviousQuestion()
+        return
+      }
+
+      if (!navigatorOpen && !editing && event.key === 'ArrowRight') {
+        event.preventDefault()
+        handleNextQuestion()
+        return
+      }
+
       if (event.key >= '1' && event.key <= '9') {
         const option = question?.options[Number(event.key) - 1]
         if (option && (!submitted || editing)) {
@@ -503,26 +515,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
       <div className="mb-5 hidden lg:block">
         <div className="hidden flex-wrap items-center justify-between gap-2 lg:flex">
           <h1 className="font-serif text-2xl text-ink">{set.title}</h1>
-          <div className="flex items-center gap-2">
-            <ReadingScaleButton onClick={() => setReadingScaleOpen(true)} />
-            {!navigatorOpen && (
-              <button
-                type="button"
-                onClick={openNavigator}
-                onKeyDown={(event) => event.stopPropagation()}
-                aria-expanded={false}
-                aria-controls="question-navigator-panel"
-                aria-label={`開啟題號列表，已答 ${answeredCount} / ${total} 題，答對 ${correctCount} 題`}
-                className="inline-flex min-h-11 items-center gap-2 rounded-full border border-line bg-surface px-3 text-sm font-medium text-ink shadow-card transition-colors hover:border-accent/60 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-              >
-                <ListChecks className="h-4 w-4 text-accent" aria-hidden="true" />
-                <span>題號</span>
-                <span className="font-mono text-xs font-normal text-muted">
-                  {answeredCount}/{total}
-                </span>
-              </button>
-            )}
-          </div>
+          <ReadingScaleButton onClick={() => setReadingScaleOpen(true)} />
         </div>
         <div className="lg:mt-3">
           <ProgressBar
@@ -534,6 +527,45 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
       </div>
 
       <div ref={questionCardRef} className="scroll-mt-24 lg:scroll-mt-8">
+        <div className="mb-3 hidden justify-center lg:flex">
+          <div className="inline-flex items-center gap-1 rounded-full border border-line bg-surface p-1 shadow-card">
+            <Button
+              variant="ghost"
+              onClick={handlePreviousQuestion}
+              disabled={index <= 0}
+              className="min-h-9 rounded-full px-3 text-muted hover:bg-paper hover:text-ink"
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+              前一題
+            </Button>
+            {!navigatorOpen && (
+              <button
+                type="button"
+                onClick={openNavigator}
+                onKeyDown={(event) => event.stopPropagation()}
+                aria-expanded={false}
+                aria-controls="question-navigator-panel"
+                aria-label={`開啟題號列表，已答 ${answeredCount} / ${total} 題，答對 ${correctCount} 題`}
+                className="inline-flex min-h-9 items-center gap-2 rounded-full bg-accent-soft px-3 text-sm font-medium text-accent transition-colors hover:bg-accent-soft/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              >
+                <ListChecks className="h-4 w-4" aria-hidden="true" />
+                <span>題號</span>
+                <span className="font-mono text-xs font-normal text-accent/80">
+                  {answeredCount}/{total}
+                </span>
+              </button>
+            )}
+            <Button
+              variant="ghost"
+              onClick={handleNextQuestion}
+              disabled={index >= total - 1}
+              className="min-h-9 rounded-full px-3 text-muted hover:bg-paper hover:text-ink"
+            >
+              後一題
+              <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </div>
+        </div>
         <QuestionCard
           question={question}
           selected={selected}
@@ -573,7 +605,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
       )}
 
       <p className="mt-4 hidden text-center text-xs text-muted lg:block">
-        可從題號列表跳到任一題；離開後進度會保留。
+        可用上方按鈕或鍵盤左右方向鍵換題，也能從題號列表跳到任一題；離開後進度會保留。
       </p>
 
       <nav
