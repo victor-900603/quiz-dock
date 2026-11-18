@@ -4,8 +4,10 @@ import { Card } from './Card'
 import { ExplanationPanel } from './ExplanationPanel'
 import { MarkButton } from './MarkButton'
 import { OptionButton, type OptionStatus } from './OptionButton'
+import { QuestionCopyActions } from './QuestionCopyActions'
 import { cn } from '../lib/cn'
 import { evaluateAnswer, isMultiAnswer } from '../features/practice/evaluate'
+import { formatQuestionNumber } from '../lib/questionText'
 import type { Question } from '../types/quiz'
 
 type QuestionCardProps = {
@@ -68,9 +70,12 @@ export function QuestionCard({
           <span className="rounded-full border border-line bg-paper px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.14em] text-muted">
             {question.topic}
           </span>
-          <span className="font-mono text-xs text-muted">#{String(question.number).padStart(3, '0')}</span>
+          <span className="font-mono text-xs text-muted">{formatQuestionNumber(question.number)}</span>
         </div>
-        {showMark && <MarkButton marked={marked} onToggle={onToggleMark} />}
+        <div className="flex shrink-0 items-center gap-1">
+          <QuestionCopyActions question={question} />
+          {showMark && <MarkButton marked={marked} onToggle={onToggleMark} />}
+        </div>
       </div>
 
       <h2 className="reading-prompt mt-4 font-serif text-ink">{question.prompt}</h2>

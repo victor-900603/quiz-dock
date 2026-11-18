@@ -153,6 +153,9 @@ describe('QuestionBrowser', () => {
     expect(screen.getByText('選項甲 1')).toBeInTheDocument()
     expect(screen.getByText('選項乙')).toBeInTheDocument()
     expect(screen.getAllByText('正確答案').length).toBeGreaterThan(0)
+    expect(
+      screen.getByRole('button', { name: '複製第 1 題的題目與選項' }),
+    ).toBeInTheDocument()
     expect(screen.getByText('詳細解析')).toBeInTheDocument()
     expect(screen.getByText('已標記')).toBeInTheDocument()
   })

@@ -74,7 +74,7 @@ src/main.tsx
 
 ### `src/components`
 
-跨頁面重用的介面元件，例如 `AppShell`、`Button`、`Card`、`Modal`、`QuestionCard`、`QuestionNavigator`、`StatCard`。`AnswerReview` 統一題目檢視時的選項與解析樣式，供已標記題目與題目瀏覽共用；`ImportDialog` 與 `SyncDialog` 共用 `JsonSourcePicker` 處理檔案上傳與貼上內容；`ImportDialog` 以 `CsvMappingFields` 讓使用者對應 CSV/TSV 欄位，右上角問號按鈕會開啟 `ImportHelpDialog`，以範例說明格式與常見錯誤；`StartPracticeDialog` 選擇練習範圍、順序與題數；`ActionMenu` 將列表項目的次要操作收合為單一選單。
+跨頁面重用的介面元件，例如 `AppShell`、`Button`、`Card`、`Modal`、`QuestionCard`、`QuestionNavigator`、`StatCard`。`AnswerReview` 統一題目檢視時的選項與解析樣式，供已標記題目與題目瀏覽共用；`QuestionCopyActions` 在練習、題目瀏覽與已標記題目中複製題幹與選項；`ImportDialog` 與 `SyncDialog` 共用 `JsonSourcePicker` 處理檔案上傳與貼上內容；`ImportDialog` 以 `CsvMappingFields` 讓使用者對應 CSV/TSV 欄位，右上角問號按鈕會開啟 `ImportHelpDialog`，以範例說明格式與常見錯誤；`StartPracticeDialog` 選擇練習範圍、順序與題數；`ActionMenu` 將列表項目的次要操作收合為單一選單。
 
 ### `src/pwa`
 
@@ -249,6 +249,7 @@ Workbox 使用 `generateSW` 模式：
 - 整合測試：以 `fakeSupabase` 模擬資料庫，透過 Testing Library 操作完整頁面流程。
 - 匯出與更新：驗證匯出檔可回匯、題號差異分類、作答正確性重算與移除題目後的資料清理。
 - 題目瀏覽：驗證每批 20 題、載入更多、題幹／選項／解析／題號搜尋、主題篩選與展開內容。
+- 複製題目：驗證複製文字包含題號、主題、題幹與選項，並處理剪貼簿失敗與提示重設。
 - RLS smoke test：`supabase/tests/rls.sql` 手動對遠端資料庫執行，驗證跨帳號隔離。
 - 覆蓋率門檻：statements、branches、functions、lines 皆為 80%。
 

@@ -113,6 +113,11 @@ describe('MarksPage', () => {
       ),
     ).toBeInTheDocument()
     expect(within(panel as HTMLElement).getByText('正確答案')).toBeInTheDocument()
+    expect(
+      within(panel as HTMLElement).getByRole('button', {
+        name: /複製第 .* 題的題目與選項/,
+      }),
+    ).toBeInTheDocument()
 
     await user.click(toggle)
 

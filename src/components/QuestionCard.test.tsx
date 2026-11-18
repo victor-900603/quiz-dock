@@ -59,6 +59,14 @@ describe('QuestionCard', () => {
     expect(props.onSubmit).toHaveBeenCalledTimes(1)
   })
 
+  it('offers a copy action for the question and options', () => {
+    renderCard()
+
+    expect(
+      screen.getByRole('button', { name: '複製第 1 題的題目與選項' }),
+    ).toBeInTheDocument()
+  })
+
   it('shows correct feedback and the explanation after submitting', () => {
     renderCard({ selected: ['B'], submitted: true })
 

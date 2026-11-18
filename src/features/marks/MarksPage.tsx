@@ -6,8 +6,10 @@ import { Card } from '../../components/Card'
 import { EmptyState } from '../../components/EmptyState'
 import { MarkButton } from '../../components/MarkButton'
 import { PageHeader } from '../../components/PageHeader'
+import { QuestionCopyActions } from '../../components/QuestionCopyActions'
 import { cn } from '../../lib/cn'
 import { formatShortDateTime } from '../../lib/format'
+import { formatQuestionNumber } from '../../lib/questionText'
 import type { MarkedQuestion } from '../../types/quiz'
 import { groupMarksBySet } from './groupMarks'
 import { useMarksQuery, useToggleMarkMutation } from './queries'
@@ -141,7 +143,7 @@ export function MarksPage() {
                         >
                           <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs text-muted">
                             <span className="font-mono text-[13px] text-ink">
-                              #{String(mark.number).padStart(3, '0')}
+                              {formatQuestionNumber(mark.number)}
                             </span>
                             <span className="rounded-full border border-line bg-paper px-2 py-0.5 text-[11px] font-medium tracking-[0.08em]">
                               {mark.topic}
@@ -174,6 +176,7 @@ export function MarksPage() {
                           id={panelId}
                           className="border-t border-line bg-paper/60 px-4 py-4 sm:px-5"
                         >
+                          <QuestionCopyActions question={mark} className="mb-3 justify-end" />
                           <AnswerReview
                             options={mark.options}
                             correctAnswers={mark.correctAnswers}

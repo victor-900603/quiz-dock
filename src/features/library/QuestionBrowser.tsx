@@ -2,6 +2,8 @@ import { useDeferredValue, useMemo, useState } from 'react'
 import { ChevronDown, Search, Star } from 'lucide-react'
 import { AnswerReview } from '../../components/AnswerReview'
 import { Button } from '../../components/Button'
+import { QuestionCopyActions } from '../../components/QuestionCopyActions'
+import { formatQuestionNumber } from '../../lib/questionText'
 import type { Question } from '../../types/quiz'
 
 const PAGE_SIZE = 20
@@ -14,10 +16,6 @@ type QuestionBrowserProps = {
 
 function normalize(value: string) {
   return value.toLocaleLowerCase('zh-TW')
-}
-
-function questionNumberLabel(number: number) {
-  return `#${String(number).padStart(3, '0')}`
 }
 
 export function QuestionBrowser({ questions, markedQuestionIds }: QuestionBrowserProps) {
@@ -116,7 +114,7 @@ export function QuestionBrowser({ questions, markedQuestionIds }: QuestionBrowse
                     aria-hidden="true"
                   />
                   <span className="mt-0.5 shrink-0 font-mono text-xs text-muted">
-                    {questionNumberLabel(question.number)}
+                    {formatQuestionNumber(question.number)}
                   </span>
                   <span className="mt-0.5 shrink-0 rounded-full border border-line bg-paper px-2 py-0.5 text-[11px] text-muted">
                     {question.topic}
@@ -134,6 +132,7 @@ export function QuestionBrowser({ questions, markedQuestionIds }: QuestionBrowse
                 </summary>
 
                 <div className="mt-3 pl-3 sm:pl-7">
+                  <QuestionCopyActions question={question} className="mb-3 justify-end" />
                   <AnswerReview
                     options={question.options}
                     correctAnswers={question.correctAnswers}
