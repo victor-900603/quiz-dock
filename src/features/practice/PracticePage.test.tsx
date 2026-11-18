@@ -162,13 +162,14 @@ describe('PracticePage', () => {
     await user.click(screen.getByRole('button', { name: '切換到下一題' }))
 
     expect(screen.getByText('題目二')).toBeInTheDocument()
-    expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' })
+    await waitFor(() =>
+      expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' }),
+    )
   })
 
   it('aligns the question card when moving to another question on desktop', async () => {
     const user = userEvent.setup()
-    const scrollIntoView = vi.fn()
-    HTMLElement.prototype.scrollIntoView = scrollIntoView
+    const scrollTo = vi.mocked(window.scrollTo)
     vi.stubGlobal('matchMedia', (query: string) => ({
       matches: query.includes('min-width: 1024px'),
       media: query,
@@ -181,18 +182,54 @@ describe('PracticePage', () => {
     }))
 
     renderPractice()
-    scrollIntoView.mockClear()
+    const anchor = document.querySelector('[data-question-anchor]')
+    expect(anchor).not.toBeNull()
+    vi.spyOn(anchor as HTMLElement, 'getBoundingClientRect').mockReturnValue({
+      top: 120,
+    } as DOMRect)
+    scrollTo.mockClear()
 
     await user.hover(screen.getByRole('button', { name: /練習工具列/ }))
     await user.click(screen.getByRole('button', { name: '後一題' }))
 
     expect(screen.getByText('題目二')).toBeInTheDocument()
-    expect(scrollIntoView).toHaveBeenCalledWith({
-      behavior: 'smooth',
-      block: 'start',
-    })
+    await waitFor(() =>
+      expect(scrollTo).toHaveBeenCalledWith({ top: 104, behavior: 'smooth' }),
+    )
 
-    delete (HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView
+    vi.unstubAllGlobals()
+  })
+
+  it('jumps from the question list with the same scroll position', async () => {
+    const user = userEvent.setup()
+    const scrollTo = vi.mocked(window.scrollTo)
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('min-width: 1024px'),
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }))
+
+    renderPractice()
+    const anchor = document.querySelector('[data-question-anchor]')
+    expect(anchor).not.toBeNull()
+    vi.spyOn(anchor as HTMLElement, 'getBoundingClientRect').mockReturnValue({
+      top: 120,
+    } as DOMRect)
+    scrollTo.mockClear()
+
+    await user.click(screen.getByRole('button', { name: /展開題號列表/ }))
+    await user.click(screen.getByRole('button', { name: /^第 2 題/ }))
+
+    expect(await screen.findByText('題目二')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(scrollTo).toHaveBeenCalledWith({ top: 104, behavior: 'smooth' }),
+    )
+
     vi.unstubAllGlobals()
   })
 

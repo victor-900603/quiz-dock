@@ -224,12 +224,29 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(min-width: 1024px)').matches
 
-    if (isDesktop && questionAnchorRef.current?.scrollIntoView) {
-      questionAnchorRef.current.scrollIntoView({ behavior, block: 'start' })
+    const scrollToQuestion = () => {
+      if (!isDesktop) {
+        window.scrollTo?.({ top: 0, behavior })
+        return
+      }
+
+      const anchor = questionAnchorRef.current
+      if (!anchor) return
+
+      const top = Math.max(
+        0,
+        window.scrollY + anchor.getBoundingClientRect().top - 16,
+      )
+      window.scrollTo?.({ top, behavior })
+    }
+
+    if (typeof window.requestAnimationFrame !== 'function') {
+      scrollToQuestion()
       return
     }
 
-    window.scrollTo?.({ top: 0, behavior })
+    const frame = window.requestAnimationFrame(scrollToQuestion)
+    return () => window.cancelAnimationFrame?.(frame)
   }, [index, question?.id])
 
   function toggleOption(key: string) {
@@ -392,6 +409,10 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
 
   function handleJump(targetIndex: number) {
     if (targetIndex < 0 || targetIndex >= total) return
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
+    setNavigatorOpen(false)
     setIndex(targetIndex)
   }
 
@@ -552,7 +573,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
           onNext={handleNextQuestion}
           onToggleNavigator={navigatorOpen ? closeNavigator : openNavigator}
         />
-        <div ref={questionAnchorRef} className="scroll-mt-24 lg:scroll-mt-4">
+        <div ref={questionAnchorRef} data-question-anchor>
           <QuestionCard
             question={question}
             selected={selected}
