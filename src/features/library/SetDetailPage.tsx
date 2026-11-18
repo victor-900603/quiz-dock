@@ -12,6 +12,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ActionMenu } from '../../components/ActionMenu'
 import { Button, buttonStyles } from '../../components/Button'
 import { Card } from '../../components/Card'
+import { Skeleton } from '../../components/Skeleton'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { EmptyState } from '../../components/EmptyState'
 import { Modal } from '../../components/Modal'
@@ -207,9 +208,33 @@ export function SetDetailPage() {
 
   if (setQuery.isPending) {
     return (
-      <Card className="p-6 text-sm text-muted" role="status">
-        載入題庫中...
-      </Card>
+      <div role="status" aria-busy="true">
+        <span className="sr-only">載入題庫中...</span>
+        <div aria-hidden="true" className="space-y-6">
+          <div className="space-y-3">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-8 w-2/3" />
+            <Skeleton className="h-3 w-44" />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Card key={index} className="space-y-3 p-5">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-7 w-24" />
+                <Skeleton className="h-3 w-20" />
+              </Card>
+            ))}
+          </div>
+          <Card className="space-y-4 p-5 sm:p-6">
+            <Skeleton className="h-5 w-28" />
+            <div className="grid gap-3 sm:grid-cols-2">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={index} className="h-10 w-full" />
+              ))}
+            </div>
+          </Card>
+        </div>
+      </div>
     )
   }
 

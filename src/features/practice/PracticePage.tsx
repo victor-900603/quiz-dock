@@ -3,6 +3,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, ListChecks } from 'lucide-react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button, buttonStyles } from '../../components/Button'
 import { Card } from '../../components/Card'
+import { Skeleton } from '../../components/Skeleton'
 import { EmptyState } from '../../components/EmptyState'
 import { ProgressBar } from '../../components/ProgressBar'
 import { QuestionCard } from '../../components/QuestionCard'
@@ -50,9 +51,29 @@ export function PracticePage() {
 
   if (sessionQuery.isPending) {
     return (
-      <Card className="p-6 text-sm text-muted" role="status">
-        載入練習中...
-      </Card>
+      <div role="status" aria-busy="true">
+        <span className="sr-only">載入練習中...</span>
+        <div aria-hidden="true" className="space-y-4">
+          <div className="space-y-3">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-7 w-2/3" />
+            <Skeleton className="h-2 w-full" />
+          </div>
+          <Card className="space-y-5 p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-9 w-20 rounded-full" />
+            </div>
+            <Skeleton className="h-6 w-4/5" />
+            <Skeleton className="h-6 w-3/5" />
+            <div className="space-y-3 pt-2">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={index} className="h-12 w-full" />
+              ))}
+            </div>
+          </Card>
+        </div>
+      </div>
     )
   }
 

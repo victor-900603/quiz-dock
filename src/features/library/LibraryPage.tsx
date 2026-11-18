@@ -3,6 +3,7 @@ import { ArrowRight, BookOpen, Upload } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { buttonStyles, Button } from '../../components/Button'
 import { Card } from '../../components/Card'
+import { Skeleton } from '../../components/Skeleton'
 import { EmptyState } from '../../components/EmptyState'
 import { ImportDialog } from '../../components/ImportDialog'
 import { PageHeader } from '../../components/PageHeader'
@@ -121,9 +122,27 @@ export function LibraryPage() {
       )}
 
       {setsQuery.isPending ? (
-        <Card className="p-6 text-sm text-muted" role="status">
-          載入題庫中...
-        </Card>
+        <div role="status" aria-busy="true">
+          <span className="sr-only">載入題庫中...</span>
+          <div aria-hidden="true" className="grid gap-4 sm:grid-cols-2">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Card key={index} className="p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1 space-y-3">
+                    <Skeleton className="h-5 w-2/3" />
+                    <Skeleton className="h-3 w-full" />
+                    <Skeleton className="h-3 w-4/5" />
+                  </div>
+                  <Skeleton className="h-10 w-10 rounded-full" />
+                </div>
+                <div className="mt-4 flex gap-2">
+                  <Skeleton className="h-6 w-16 rounded-full" />
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
       ) : setsQuery.isError ? (
         <Card className="p-6" role="alert">
           <p className="text-sm text-wrong">

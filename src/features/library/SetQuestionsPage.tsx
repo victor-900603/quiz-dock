@@ -2,6 +2,7 @@ import { ArrowLeft } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { Button, buttonStyles } from '../../components/Button'
 import { Card } from '../../components/Card'
+import { Skeleton } from '../../components/Skeleton'
 import { EmptyState } from '../../components/EmptyState'
 import { PageHeader } from '../../components/PageHeader'
 import { useMarksQuery } from '../marks/queries'
@@ -15,9 +16,29 @@ export function SetQuestionsPage() {
 
   if (setQuery.isPending) {
     return (
-      <Card className="p-6 text-sm text-muted" role="status">
-        載入題庫中...
-      </Card>
+      <div role="status" aria-busy="true">
+        <span className="sr-only">載入題庫中...</span>
+        <div aria-hidden="true" className="space-y-6">
+          <Skeleton className="h-4 w-24" />
+          <div className="space-y-3">
+            <Skeleton className="h-3 w-20" />
+            <Skeleton className="h-8 w-2/3" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+          <Card className="space-y-4 p-5 sm:p-6">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Skeleton className="h-11 w-full" />
+              <Skeleton className="h-11 w-full sm:w-48" />
+            </div>
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="space-y-2 border-t border-line pt-3">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-3 w-2/3" />
+              </div>
+            ))}
+          </Card>
+        </div>
+      </div>
     )
   }
 

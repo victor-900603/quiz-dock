@@ -80,7 +80,7 @@ src/main.tsx
 
 ### `src/components`
 
-跨頁面重用的介面元件，例如 `AppShell`、`Button`、`Card`、`Modal`、`QuestionCard`、`QuestionNavigator`、`StatCard`。`AnswerReview` 統一題目檢視時的選項與解析樣式，供已標記題目與題目瀏覽共用；`QuestionCopyActions` 在練習、題目瀏覽與已標記題目中複製題幹與選項；`ImportDialog` 與 `SyncDialog` 共用 `JsonSourcePicker` 處理檔案上傳與貼上內容；`ImportDialog` 以 `CsvMappingFields` 讓使用者對應 CSV/TSV 欄位，右上角問號按鈕會開啟 `ImportHelpDialog`，以範例說明格式與常見錯誤；`StartPracticeDialog` 選擇練習範圍、順序與題數；`ActionMenu` 將列表項目的次要操作收合為單一選單。
+跨頁面重用的介面元件，例如 `AppShell`、`Button`、`Card`、`Modal`、`QuestionCard`、`QuestionNavigator`、`StatCard`。`AnswerReview` 統一題目檢視時的選項與解析樣式，供已標記題目與題目瀏覽共用；`QuestionCopyActions` 在練習、題目瀏覽與已標記題目中複製題幹與選項；`ImportDialog` 與 `SyncDialog` 共用 `JsonSourcePicker` 處理檔案上傳與貼上內容；`ImportDialog` 以 `CsvMappingFields` 讓使用者對應 CSV/TSV 欄位，右上角問號按鈕會開啟 `ImportHelpDialog`，以範例說明格式與常見錯誤；`StartPracticeDialog` 選擇練習範圍、順序與題數；`ActionMenu` 將列表項目的次要操作收合為單一選單；`Skeleton` 提供載入骨架區塊，以 `animate-pulse` 呈現並透過 `motion-reduce:animate-none` 尊重減少動態效果。
 
 ### `src/pwa`
 
