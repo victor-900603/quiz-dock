@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -16,15 +16,25 @@ const mocks = vi.hoisted(() => ({
   signOut: vi.fn(),
 }))
 
+const preferencesMocks = vi.hoisted(() => ({
+  fetchPreferences: vi.fn(),
+  savePreferences: vi.fn(),
+}))
+
 vi.mock('../../pwa/useInstallPrompt', () => ({
   useInstallPrompt: () => mocks.install,
 }))
 
 vi.mock('../auth/AuthContext', () => ({
   useAuth: () => ({
-    user: { email: 'victor@example.com' },
+    user: { id: 'user-1', email: 'victor@example.com' },
     signOut: mocks.signOut,
   }),
+}))
+
+vi.mock('./preferencesService', () => ({
+  fetchPreferences: preferencesMocks.fetchPreferences,
+  savePreferences: preferencesMocks.savePreferences,
 }))
 
 function renderSettings() {
@@ -48,6 +58,12 @@ describe('SettingsPage', () => {
       isIos: false,
       promptInstall: vi.fn(),
     }
+    preferencesMocks.fetchPreferences.mockReset()
+    preferencesMocks.savePreferences.mockReset()
+    preferencesMocks.fetchPreferences.mockResolvedValue({ autoMarkWrong: false })
+    preferencesMocks.savePreferences.mockImplementation(
+      async (_userId: string, preferences: unknown) => preferences,
+    )
   })
 
   it('shows the install action when the browser offers it', async () => {
@@ -112,5 +128,47 @@ describe('SettingsPage', () => {
     expect(screen.getByRole('radio', { name: '大' })).toBeChecked()
     expect(localStorage.getItem(readingSizeStorageKey)).toBe('large')
     expect(document.documentElement.dataset.readingSize).toBe('large')
+  })
+
+  it('toggles automatic marking of wrong answers', async () => {
+    const user = userEvent.setup()
+    renderSettings()
+
+    const toggle = await screen.findByRole('switch', { name: '答錯時自動標記' })
+    await waitFor(() => expect(toggle).toBeEnabled())
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+    preferencesMocks.fetchPreferences.mockResolvedValue({ autoMarkWrong: true })
+
+    await user.click(toggle)
+
+    await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'true'))
+    expect(preferencesMocks.savePreferences).toHaveBeenCalledWith('user-1', {
+      autoMarkWrong: true,
+    })
+  })
+
+  it('shows the stored automatic marking setting', async () => {
+    preferencesMocks.fetchPreferences.mockResolvedValue({ autoMarkWrong: true })
+    renderSettings()
+
+    const toggle = await screen.findByRole('switch', { name: '答錯時自動標記' })
+    await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'true'))
+  })
+
+  it('keeps the switch unchanged when saving fails', async () => {
+    const user = userEvent.setup()
+    preferencesMocks.savePreferences.mockRejectedValue(
+      new Error('無法儲存偏好設定，請稍後再試。'),
+    )
+    renderSettings()
+
+    const toggle = await screen.findByRole('switch', { name: '答錯時自動標記' })
+    await waitFor(() => expect(toggle).toBeEnabled())
+    await user.click(toggle)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '無法儲存偏好設定，請稍後再試。',
+    )
+    await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'false'))
   })
 })

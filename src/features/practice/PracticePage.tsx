@@ -13,6 +13,7 @@ import {
 } from '../../components/QuestionNavigator'
 import type { PracticeSessionDetail } from '../../types/quiz'
 import { useMarksQuery, useToggleMarkMutation } from '../marks/queries'
+import { usePreferences } from '../settings/queries'
 import { ReadingScaleButton, ReadingScaleDialog } from '../settings/ReadingScaleControl'
 import { isMultiAnswer } from './evaluate'
 import { PracticeHeader } from './PracticeHeader'
@@ -121,6 +122,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
   const submitMutation = useSubmitAnswerMutation()
   const marksQuery = useMarksQuery()
   const toggleMarkMutation = useToggleMarkMutation()
+  const { preferences } = usePreferences()
   const { session, set, questions, attempts } = detail
   const total = questions.length
   const mode = session.mode
@@ -290,6 +292,25 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
       setEditing(false)
       setEditSelected([])
       questionStartedAt.current = Date.now()
+
+      if (
+        !result.isCorrect &&
+        preferences.autoMarkWrong &&
+        !markedIds.has(question.id)
+      ) {
+        toggleMarkMutation.mutate(
+          {
+            questionId: question.id,
+            marked: false,
+            question,
+            setId: set.id,
+            setTitle: set.title,
+          },
+          {
+            onError: () => setUpdateNotice('答案已記錄，但自動標記失敗。'),
+          },
+        )
+      }
     } catch (error) {
       setSubmitError(
         error instanceof Error ? error.message : '無法送出答案，請稍後再試。',

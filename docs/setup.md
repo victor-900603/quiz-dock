@@ -52,6 +52,7 @@ Migration 位於 `supabase/migrations/`，依序為：
 20261113033000_fix_submit_answer_ambiguous.sql
 20261115090000_question_number_identity.sql
 20261116120000_multiple_practice_sessions.sql
+20261118120000_user_settings.sql
 ```
 
 推到遠端資料庫：
@@ -84,6 +85,7 @@ npm run db:lint
 - fix_submit_answer_ambiguous：修正 `submit_answer` 的欄位名稱歧義。
 - question_number_identity：題號改為非空且在題庫內唯一，新增 `sync_practice_session` 以重整練習進度。
 - multiple_practice_sessions：移除單場限制，改為每題庫同時僅一場進行中；新增錯題來源 `source_session_id` 與多場重整。
+- user_settings：新增使用者偏好設定表，同步答錯自動標記等帳號層級設定。
 
 ## 4. Auth 設定
 

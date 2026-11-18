@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -27,6 +27,9 @@ const mocks = vi.hoisted(() => ({
     mutate: vi.fn(),
     isError: false,
   },
+  preferences: {
+    preferences: { autoMarkWrong: false },
+  },
 }))
 
 vi.mock('./queries', () => ({
@@ -37,6 +40,10 @@ vi.mock('./queries', () => ({
 vi.mock('../marks/queries', () => ({
   useMarksQuery: () => mocks.marks,
   useToggleMarkMutation: () => mocks.toggleMark,
+}))
+
+vi.mock('../settings/queries', () => ({
+  usePreferences: () => mocks.preferences,
 }))
 
 function buildDetail(): PracticeSessionDetail {
@@ -124,6 +131,7 @@ describe('PracticePage', () => {
     mocks.marks.isError = false
     mocks.toggleMark.isError = false
     mocks.toggleMark.mutate.mockReset()
+    mocks.preferences.preferences = { autoMarkWrong: false }
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     resetReadingSize()
   })
@@ -173,5 +181,105 @@ describe('PracticePage', () => {
 
     await user.keyboard('{Enter}')
     expect(mocks.submit.mutateAsync).not.toHaveBeenCalled()
+  })
+
+  it('marks a wrong answer automatically when the setting is enabled', async () => {
+    const user = userEvent.setup()
+    mocks.preferences.preferences = { autoMarkWrong: true }
+    mocks.submit.mutateAsync.mockResolvedValue({
+      isCorrect: false,
+      correctAnswers: ['B'],
+      explanation: '解析',
+      alreadyAnswered: false,
+      wasUpdated: false,
+      sessionStatus: 'in_progress',
+      currentIndex: 1,
+      answeredCount: 2,
+      correctCount: 1,
+    })
+    renderPractice()
+
+    await user.click(screen.getByRole('radio', { name: /A.*甲/ }))
+    await user.click(screen.getByRole('button', { name: '確認答案' }))
+
+    await waitFor(() => expect(mocks.toggleMark.mutate).toHaveBeenCalledTimes(1))
+    expect(mocks.toggleMark.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        questionId: 'q-1',
+        marked: false,
+        setId: 'set-1',
+        setTitle: '生物學基礎',
+      }),
+      expect.anything(),
+    )
+  })
+
+  it('does not mark a correct answer', async () => {
+    const user = userEvent.setup()
+    mocks.preferences.preferences = { autoMarkWrong: true }
+    mocks.submit.mutateAsync.mockResolvedValue({
+      isCorrect: true,
+      correctAnswers: ['A'],
+      explanation: '解析',
+      alreadyAnswered: false,
+      wasUpdated: false,
+      sessionStatus: 'in_progress',
+      currentIndex: 1,
+      answeredCount: 2,
+      correctCount: 2,
+    })
+    renderPractice()
+
+    await user.click(screen.getByRole('radio', { name: /A.*甲/ }))
+    await user.click(screen.getByRole('button', { name: '確認答案' }))
+
+    await waitFor(() => expect(mocks.submit.mutateAsync).toHaveBeenCalled())
+    expect(mocks.toggleMark.mutate).not.toHaveBeenCalled()
+  })
+
+  it('does not mark a wrong answer when the setting is disabled', async () => {
+    const user = userEvent.setup()
+    mocks.submit.mutateAsync.mockResolvedValue({
+      isCorrect: false,
+      correctAnswers: ['B'],
+      explanation: '解析',
+      alreadyAnswered: false,
+      wasUpdated: false,
+      sessionStatus: 'in_progress',
+      currentIndex: 1,
+      answeredCount: 2,
+      correctCount: 1,
+    })
+    renderPractice()
+
+    await user.click(screen.getByRole('radio', { name: /A.*甲/ }))
+    await user.click(screen.getByRole('button', { name: '確認答案' }))
+
+    await waitFor(() => expect(mocks.submit.mutateAsync).toHaveBeenCalled())
+    expect(mocks.toggleMark.mutate).not.toHaveBeenCalled()
+  })
+
+  it('does not mark a question that is already marked', async () => {
+    const user = userEvent.setup()
+    mocks.preferences.preferences = { autoMarkWrong: true }
+    mocks.marks.data = [{ id: 'q-1' }]
+    mocks.submit.mutateAsync.mockResolvedValue({
+      isCorrect: false,
+      correctAnswers: ['B'],
+      explanation: '解析',
+      alreadyAnswered: false,
+      wasUpdated: false,
+      sessionStatus: 'in_progress',
+      currentIndex: 1,
+      answeredCount: 2,
+      correctCount: 1,
+    })
+    renderPractice()
+
+    await user.click(screen.getByRole('radio', { name: /A.*甲/ }))
+    await user.click(screen.getByRole('button', { name: '確認答案' }))
+
+    await waitFor(() => expect(mocks.submit.mutateAsync).toHaveBeenCalled())
+    expect(mocks.toggleMark.mutate).not.toHaveBeenCalled()
   })
 })

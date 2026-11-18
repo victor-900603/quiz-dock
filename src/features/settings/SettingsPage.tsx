@@ -5,8 +5,10 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '../../components/Button'
 import { Card } from '../../components/Card'
 import { PageHeader } from '../../components/PageHeader'
+import { cn } from '../../lib/cn'
 import { useInstallPrompt } from '../../pwa/useInstallPrompt'
 import { useAuth } from '../auth/AuthContext'
+import { usePreferences, useUpdatePreferences } from './queries'
 import { ReadingScaleOptions } from './ReadingScaleControl'
 
 function InstallCard() {
@@ -53,6 +55,56 @@ function InstallCard() {
   )
 }
 
+function PracticeSettingsCard() {
+  const { preferences, isPending, isError } = usePreferences()
+  const updatePreferences = useUpdatePreferences()
+  const error = updatePreferences.error ?? (isError ? new Error('無法載入偏好設定，請稍後再試。') : null)
+
+  return (
+    <Card className="mt-4 p-5 sm:p-6">
+      <h2 className="font-serif text-xl text-ink">練習</h2>
+      <p className="mt-2 text-xs leading-6 text-muted">這些設定會同步到你的帳號。</p>
+      <div className="mt-4 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-ink">答錯時自動標記</p>
+          <p className="mt-1 text-xs leading-6 text-muted">
+            送出答案後，答錯的題目會自動加入標記，方便之後集中複習。
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={preferences.autoMarkWrong}
+          aria-label="答錯時自動標記"
+          disabled={isPending || updatePreferences.isPending}
+          onClick={() =>
+            updatePreferences.mutate({ autoMarkWrong: !preferences.autoMarkWrong })
+          }
+          className={cn(
+            'relative mt-1 inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60',
+            preferences.autoMarkWrong
+              ? 'border-accent bg-accent'
+              : 'border-line bg-paper',
+          )}
+        >
+          <span
+            aria-hidden="true"
+            className={cn(
+              'block h-4 w-4 rounded-full bg-surface shadow-sm transition-transform',
+              preferences.autoMarkWrong ? 'translate-x-6' : 'translate-x-1',
+            )}
+          />
+        </button>
+      </div>
+      {error && (
+        <p role="alert" className="mt-3 text-xs text-wrong">
+          {error.message}
+        </p>
+      )}
+    </Card>
+  )
+}
+
 export function SettingsPage() {
   const { user, signOut } = useAuth()
   const queryClient = useQueryClient()
@@ -83,6 +135,8 @@ export function SettingsPage() {
           登出
         </Button>
       </Card>
+
+      <PracticeSettingsCard />
 
       <Card className="mt-4 p-5 sm:p-6">
         <h2 className="font-serif text-xl text-ink">閱讀</h2>

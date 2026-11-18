@@ -94,6 +94,18 @@ QuizDock 的資料層位於 Supabase PostgreSQL。所有使用者資料以 `auth
 
 主鍵：`(user_id, question_id)`。索引：`(user_id, created_at desc)`。
 
+### `public.user_settings`
+
+跨裝置同步的使用者偏好。
+
+| 欄位 | 型別 | 說明 |
+| --- | --- | --- |
+| `user_id` | `uuid` | 使用者，參照 `auth.users(id)`，主鍵 |
+| `preferences` | `jsonb` | 偏好設定，前端逐欄解析並回落預設值 |
+| `updated_at` | `timestamptz` | 最後更新時間，由 trigger 維護 |
+
+目前欄位：`autoMarkWrong`（布林，預設 `false`），代表答錯時是否自動加入標記。
+
 ## 關聯
 
 ```text
@@ -102,7 +114,8 @@ auth.users
   ├─ questions.owner_id
   ├─ practice_sessions.user_id
   ├─ attempts.user_id
-  └─ question_marks.user_id
+  ├─ question_marks.user_id
+  └─ user_settings.user_id
 
 quiz_sets
   ├─ questions.set_id
@@ -131,11 +144,13 @@ questions
 | `practice_sessions` | 僅自己的 | 僅自己的；新增時題庫須為自己的或公開的 |
 | `attempts` | 僅自己的 | 僅自己的；新增時 session 須為自己的；可更新與刪除自己的紀錄 |
 | `question_marks` | 僅自己的 | 僅自己的；新增時題目須為自己的或位於公開題庫 |
+| `user_settings` | 僅自己的 | 僅自己的；新增與更新皆須為自己的資料列 |
 
 資料表 grants：
 
 - `anon`：`select` `quiz_sets`、`questions`。
 - `authenticated`：`quiz_sets`、`questions`、`practice_sessions`、`attempts`、`question_marks` 的 `select`、`insert`、`update`、`delete`，實際可用操作仍受 RLS 限制。
+- `authenticated`：`user_settings` 的 `select`、`insert`、`update`。
 - 統計 view：`authenticated` 可 `select`。
 - RPC：`authenticated` 可執行 `start_practice_session`、`submit_answer`、`sync_practice_session`。
 
@@ -190,6 +205,7 @@ questions
 20261113033000_fix_submit_answer_ambiguous.sql 修正 RPC 欄位歧義
 20261115090000_question_number_identity.sql 題號非空與唯一、練習進度重整 RPC
 20261116120000_multiple_practice_sessions.sql 多場練習、錯題來源與單場進行中限制
+20261118120000_user_settings.sql           使用者偏好設定與 RLS
 ```
 
 已套用的 migration 不直接修改；修正請新增 migration。

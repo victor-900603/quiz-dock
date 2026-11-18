@@ -13,6 +13,7 @@ export type FakeTableName =
   | 'practice_sessions'
   | 'attempts'
   | 'question_marks'
+  | 'user_settings'
 
 export type FakeViewName =
   | 'v_set_stats'
@@ -65,6 +66,7 @@ function emptyTables(): FakeTables {
     practice_sessions: [],
     attempts: [],
     question_marks: [],
+    user_settings: [],
   }
 }
 
@@ -75,6 +77,7 @@ function cloneTables(tables: FakeTables): FakeTables {
     practice_sessions: tables.practice_sessions.map((row) => ({ ...row })),
     attempts: tables.attempts.map((row) => ({ ...row })),
     question_marks: tables.question_marks.map((row) => ({ ...row })),
+    user_settings: tables.user_settings.map((row) => ({ ...row })),
   }
 }
 
@@ -583,6 +586,7 @@ export function createFakeSupabase(seed: Partial<FakeTables> = {}): FakeSupabase
     practice_sessions: 0,
     attempts: 0,
     question_marks: 0,
+    user_settings: 0,
   }
 
   function startPracticeSession(args: Record<string, unknown>): FakeResult {
@@ -897,6 +901,7 @@ export function createFakeSupabase(seed: Partial<FakeTables> = {}): FakeSupabase
         practice_sessions: 0,
         attempts: 0,
         question_marks: 0,
+        user_settings: 0,
       }
     },
     failNextInsert(table, error, after = 0) {
