@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { registerSW } from 'virtual:pwa-register'
 import App from './App'
 import { initReadingSize } from './features/settings/readingScale'
+import { initTheme } from './features/settings/theme'
 import { getBasename } from './lib/router'
 import { initInstallPrompt } from './pwa/installPrompt'
 import { setNeedRefresh } from './pwa/pwaStore'
@@ -18,6 +19,7 @@ const queryClient = new QueryClient({
 })
 
 initInstallPrompt()
+initTheme()
 initReadingSize()
 
 const updateSW = registerSW({

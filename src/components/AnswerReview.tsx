@@ -36,7 +36,7 @@ export function AnswerReview({
                 className={cn(
                   'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border font-mono text-xs font-semibold',
                   isAnswer
-                    ? 'border-correct bg-correct text-white'
+                    ? 'border-correct bg-correct text-surface'
                     : 'border-line bg-paper text-muted',
                 )}
                 aria-hidden="true"

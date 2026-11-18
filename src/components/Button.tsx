@@ -8,7 +8,7 @@ const base =
   'inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-paper disabled:pointer-events-none disabled:opacity-50'
 
 const variants: Record<ButtonVariant, string> = {
-  primary: 'bg-accent text-surface hover:bg-[#184a3a]',
+  primary: 'bg-accent text-surface hover:bg-accent/90',
   secondary: 'border border-line bg-surface text-ink hover:bg-paper',
   ghost: 'text-ink hover:bg-accent-soft',
   danger: 'border border-wrong/30 bg-surface text-wrong hover:bg-wrong-soft',

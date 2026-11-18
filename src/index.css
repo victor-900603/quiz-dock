@@ -44,6 +44,23 @@
     --reading-scale: 1;
   }
 
+  html[data-theme="dark"] {
+    --color-paper: #14130f;
+    --color-surface: #1c1a16;
+    --color-ink: #f3efe6;
+    --color-muted: #a9a194;
+    --color-line: #35312a;
+    --color-accent: #7fbfa5;
+    --color-accent-soft: #22352d;
+    --color-correct: #7cc79d;
+    --color-correct-soft: #1e3328;
+    --color-wrong: #e19288;
+    --color-wrong-soft: #3a2320;
+    --color-highlight: #e3b76a;
+    --color-highlight-soft: #3a2e18;
+    --shadow-card: 0 1px 0 rgba(0, 0, 0, 0.5);
+  }
+
   html[data-reading-size="small"] {
     --reading-scale: 0.9375;
   }

@@ -56,11 +56,13 @@ src/main.tsx
 | `practice` | 開始練習（全部或錯題、依序或隨機、題數）、作答、修改答案、結束場次、練習摘要、刪除紀錄 |
 | `marks` | 標記題目、取消標記、標記列表 |
 | `stats` | 題庫、主題、每日活動與場次統計 |
-| `settings` | 帳號資訊、登出、閱讀字級、帳號偏好同步（答錯自動標記）、版本與安裝說明 |
+| `settings` | 帳號資訊、登出、閱讀字級、主題、帳號偏好同步（答錯自動標記）、版本與安裝說明 |
 
 `settings/readingScale.ts` 以 `localStorage` 保存閱讀字級（小、標準、大、特大），於 `main.tsx` 啟動時套用到 `document.documentElement`，並以 `useSyncExternalStore` 提供訂閱。題幹、選項與解析使用對應的閱讀字級 class，介面文字不受影響。
 
 `settings/preferences.ts` 定義帳號偏好與預設值，逐欄解析時若格式錯誤會回落預設；`preferencesService.ts` 讀寫 `user_settings`，`queries.ts` 以 `['settings','preferences',userId]` 快取並提供樂觀更新，跨裝置同步。
+
+`settings/theme.ts` 以 `localStorage`（`quizdock.theme`）保存淺色、深色或跟隨系統，預設跟隨系統；`main.tsx` 啟動時套用 `data-theme`、`color-scheme` 與 `theme-color`，並以 `useSyncExternalStore` 提供訂閱。深色主題只覆寫 CSS 變數，不寫入 Supabase。
 
 ### `src/lib`
 
@@ -255,6 +257,7 @@ Workbox 使用 `generateSW` 模式：
 - 題目瀏覽：驗證每批 20 題、載入更多、題幹／選項／解析／題號搜尋、主題篩選與展開內容。
 - 複製題目：驗證複製文字包含題號、主題、題幹與選項，並處理剪貼簿失敗與提示重設。
 - 帳號偏好：驗證格式錯誤回落預設、設定頁開關的樂觀更新與失敗回滾，以及答錯自動標記只在設定開啟、答錯且尚未標記時觸發。
+- 主題：驗證預設跟隨系統、無效儲存值回落、淺色與深色的套用結果、系統偏好變更時的通知，以及重設後的清理。
 - RLS smoke test：`supabase/tests/rls.sql` 手動對遠端資料庫執行，驗證跨帳號隔離。
 - 覆蓋率門檻：statements、branches、functions、lines 皆為 80%。
 

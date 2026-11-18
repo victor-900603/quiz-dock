@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SettingsPage } from './SettingsPage'
 import { readingSizeStorageKey, resetReadingSize } from './readingScale'
+import { resetTheme, themeStorageKey } from './theme'
 
 const mocks = vi.hoisted(() => ({
   install: {
@@ -52,6 +53,7 @@ function renderSettings() {
 describe('SettingsPage', () => {
   beforeEach(() => {
     resetReadingSize()
+    resetTheme()
     mocks.install = {
       canInstall: false,
       installed: false,
@@ -170,5 +172,25 @@ describe('SettingsPage', () => {
       '無法儲存偏好設定，請稍後再試。',
     )
     await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'false'))
+  })
+
+  it('changes the theme preference', async () => {
+    const user = userEvent.setup()
+    renderSettings()
+
+    expect(screen.getByRole('radio', { name: '跟隨系統' })).toBeChecked()
+
+    await user.click(screen.getByRole('radio', { name: '深色' }))
+
+    expect(screen.getByRole('radio', { name: '深色' })).toBeChecked()
+    expect(document.documentElement.dataset.theme).toBe('dark')
+    expect(localStorage.getItem(themeStorageKey)).toBe('dark')
+  })
+
+  it('restores the stored theme preference', () => {
+    localStorage.setItem(themeStorageKey, 'dark')
+    renderSettings()
+
+    expect(screen.getByRole('radio', { name: '深色' })).toBeChecked()
   })
 })

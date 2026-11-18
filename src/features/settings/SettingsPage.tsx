@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Check, Download, Info, LogOut, Share } from 'lucide-react'
+import { Check, Download, Info, LogOut, Monitor, Moon, Share, Sun } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../../components/Button'
@@ -10,6 +10,11 @@ import { useInstallPrompt } from '../../pwa/useInstallPrompt'
 import { useAuth } from '../auth/AuthContext'
 import { usePreferences, useUpdatePreferences } from './queries'
 import { ReadingScaleOptions } from './ReadingScaleControl'
+import {
+  setThemePreference,
+  useThemePreference,
+  type ThemePreference,
+} from './theme'
 
 function InstallCard() {
   const { canInstall, installed, isIos, promptInstall } = useInstallPrompt()
@@ -55,6 +60,60 @@ function InstallCard() {
   )
 }
 
+const themeOptions: Array<{
+  value: ThemePreference
+  label: string
+  icon: typeof Sun
+}> = [
+  { value: 'light', label: '淺色', icon: Sun },
+  { value: 'dark', label: '深色', icon: Moon },
+  { value: 'system', label: '跟隨系統', icon: Monitor },
+]
+
+function AppearanceSettingsCard() {
+  const preference = useThemePreference()
+
+  return (
+    <Card className="mt-4 p-5 sm:p-6">
+      <h2 className="font-serif text-xl text-ink">外觀</h2>
+      <p className="mt-2 text-xs leading-6 text-muted">設定只儲存在這台裝置。</p>
+      <div
+        role="radiogroup"
+        aria-label="主題"
+        className="mt-4 grid grid-cols-3 gap-2"
+      >
+        {themeOptions.map((option) => {
+          const checked = option.value === preference
+          const Icon = option.icon
+
+          return (
+            <label
+              key={option.value}
+              className={cn(
+                'flex min-h-16 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border px-2 py-2 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-paper',
+                checked
+                  ? 'border-accent bg-accent-soft text-accent'
+                  : 'border-line bg-surface text-ink hover:border-accent/60',
+              )}
+            >
+              <input
+                type="radio"
+                name="theme"
+                value={option.value}
+                checked={checked}
+                onChange={() => setThemePreference(option.value)}
+                className="sr-only"
+              />
+              <Icon aria-hidden="true" className="h-5 w-5" />
+              <span className="text-xs">{option.label}</span>
+            </label>
+          )
+        })}
+      </div>
+    </Card>
+  )
+}
+
 function PracticeSettingsCard() {
   const { preferences, isPending, isError } = usePreferences()
   const updatePreferences = useUpdatePreferences()
@@ -90,7 +149,7 @@ function PracticeSettingsCard() {
           <span
             aria-hidden="true"
             className={cn(
-              'block h-4 w-4 rounded-full bg-surface shadow-sm transition-transform',
+              'block h-4 w-4 rounded-full border border-line bg-surface shadow-sm transition-transform',
               preferences.autoMarkWrong ? 'translate-x-6' : 'translate-x-1',
             )}
           />
@@ -137,6 +196,8 @@ export function SettingsPage() {
       </Card>
 
       <PracticeSettingsCard />
+
+      <AppearanceSettingsCard />
 
       <Card className="mt-4 p-5 sm:p-6">
         <h2 className="font-serif text-xl text-ink">閱讀</h2>
