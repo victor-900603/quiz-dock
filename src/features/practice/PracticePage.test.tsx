@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PracticeSessionDetail } from '../../types/quiz'
 import { resetReadingSize } from '../settings/readingScale'
+import { resetTheme, themeStorageKey } from '../settings/theme'
 import { PracticePage } from './PracticePage'
 
 const mocks = vi.hoisted(() => ({
@@ -134,11 +135,13 @@ describe('PracticePage', () => {
     mocks.preferences.preferences = { autoMarkWrong: false }
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     resetReadingSize()
+    resetTheme()
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
     resetReadingSize()
+    resetTheme()
   })
 
   it('renders the current question and the practice header', () => {
@@ -191,6 +194,17 @@ describe('PracticePage', () => {
 
     delete (HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView
     vi.unstubAllGlobals()
+  })
+
+  it('changes the theme from the practice header', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+
+    await user.click(screen.getAllByRole('button', { name: '調整主題' })[0])
+    await user.click(screen.getByRole('radio', { name: '深色' }))
+
+    expect(document.documentElement.dataset.theme).toBe('dark')
+    expect(localStorage.getItem(themeStorageKey)).toBe('dark')
   })
 
   it('moves between questions with the desktop controls', async () => {

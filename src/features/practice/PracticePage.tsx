@@ -15,6 +15,7 @@ import type { PracticeSessionDetail } from '../../types/quiz'
 import { useMarksQuery, useToggleMarkMutation } from '../marks/queries'
 import { usePreferences } from '../settings/queries'
 import { ReadingScaleButton, ReadingScaleDialog } from '../settings/ReadingScaleControl'
+import { ThemeButton, ThemeDialog } from '../settings/ThemeControl'
 import { isMultiAnswer } from './evaluate'
 import { DesktopQuestionToolbar } from './DesktopQuestionToolbar'
 import { PracticeHeader } from './PracticeHeader'
@@ -153,6 +154,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
   const [navigatorFilter, setNavigatorFilter] = useState<QuestionNavigatorFilter>('all')
   const [navigatorOpen, setNavigatorOpen] = useState(false)
   const [readingScaleOpen, setReadingScaleOpen] = useState(false)
+  const [themeOpen, setThemeOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editSelected, setEditSelected] = useState<string[]>([])
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -498,6 +500,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
         answered={answeredCount}
         correct={correctCount}
         onOpenReadingScale={() => setReadingScaleOpen(true)}
+        onOpenTheme={() => setThemeOpen(true)}
       />
 
       <div className="mb-6 hidden items-center justify-between gap-3 lg:flex">
@@ -526,7 +529,10 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
       <div className="mb-5 hidden lg:block">
         <div className="hidden flex-wrap items-center justify-between gap-2 lg:flex">
           <h1 className="font-serif text-2xl text-ink">{set.title}</h1>
-          <ReadingScaleButton onClick={() => setReadingScaleOpen(true)} />
+          <div className="flex items-center gap-2">
+            <ThemeButton onClick={() => setThemeOpen(true)} />
+            <ReadingScaleButton onClick={() => setReadingScaleOpen(true)} />
+          </div>
         </div>
         <div className="lg:mt-3">
           <ProgressBar
@@ -546,7 +552,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
           onNext={handleNextQuestion}
           onToggleNavigator={navigatorOpen ? closeNavigator : openNavigator}
         />
-        <div ref={questionAnchorRef} className="scroll-mt-24 lg:scroll-mt-20">
+        <div ref={questionAnchorRef} className="scroll-mt-24 lg:scroll-mt-4">
           <QuestionCard
             question={question}
             selected={selected}
@@ -668,6 +674,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
         open={readingScaleOpen}
         onClose={() => setReadingScaleOpen(false)}
       />
+      <ThemeDialog open={themeOpen} onClose={() => setThemeOpen(false)} />
     </>
   )
 }

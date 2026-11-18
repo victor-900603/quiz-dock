@@ -64,6 +64,8 @@ src/main.tsx
 
 `settings/theme.ts` 以 `localStorage`（`quizdock.theme`）保存淺色、深色或跟隨系統，預設跟隨系統；`main.tsx` 啟動時套用 `data-theme`、`color-scheme` 與 `theme-color`，並以 `useSyncExternalStore` 提供訂閱。深色主題只覆寫 CSS 變數，不寫入 Supabase。
 
+`settings/ThemeControl.tsx` 提供共用的 `ThemeOptions`、`ThemeDialog` 與 `ThemeButton`，設定頁外觀卡與練習頁標頭（手機頁首與桌機標題列）都使用同一組主題選項；練習頁可直接開啟主題對話框切換，無須前往設定頁。
+
 ### `src/lib`
 
 - `supabase.ts`：建立 Supabase client。

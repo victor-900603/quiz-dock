@@ -16,6 +16,7 @@ function renderHeader(overrides: Partial<HeaderProps> = {}) {
     answered: 4,
     correct: 3,
     onOpenReadingScale: vi.fn(),
+    onOpenTheme: vi.fn(),
     ...overrides,
   }
 
