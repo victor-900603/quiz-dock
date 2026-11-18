@@ -16,6 +16,7 @@ import { useMarksQuery, useToggleMarkMutation } from '../marks/queries'
 import { usePreferences } from '../settings/queries'
 import { ReadingScaleButton, ReadingScaleDialog } from '../settings/ReadingScaleControl'
 import { isMultiAnswer } from './evaluate'
+import { DesktopQuestionToolbar } from './DesktopQuestionToolbar'
 import { PracticeHeader } from './PracticeHeader'
 import { usePracticeSessionQuery, useSubmitAnswerMutation } from './queries'
 import {
@@ -165,6 +166,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
   const [lastAnsweredIndex, setLastAnsweredIndex] = useState<number | null>(null)
   const questionStartedAt = useRef(Date.now())
   const questionCardRef = useRef<HTMLDivElement>(null)
+  const questionAnchorRef = useRef<HTMLDivElement>(null)
   const lastQuestionIndex = useRef(index)
 
   useEffect(() => {
@@ -215,8 +217,17 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
     const reduceMotion =
       typeof window.matchMedia === 'function' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const behavior = reduceMotion ? 'auto' : 'smooth'
+    const isDesktop =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(min-width: 1024px)').matches
 
-    window.scrollTo?.({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' })
+    if (isDesktop && questionAnchorRef.current?.scrollIntoView) {
+      questionAnchorRef.current.scrollIntoView({ behavior, block: 'start' })
+      return
+    }
+
+    window.scrollTo?.({ top: 0, behavior })
   }, [index, question?.id])
 
   function toggleOption(key: string) {
@@ -527,63 +538,34 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
       </div>
 
       <div ref={questionCardRef} className="scroll-mt-24 lg:scroll-mt-8">
-        <div className="mb-3 hidden justify-center lg:flex">
-          <div className="inline-flex items-center gap-1 rounded-full border border-line bg-surface p-1 shadow-card">
-            <Button
-              variant="ghost"
-              onClick={handlePreviousQuestion}
-              disabled={index <= 0}
-              className="min-h-9 rounded-full px-3 text-muted hover:bg-paper hover:text-ink"
-            >
-              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-              前一題
-            </Button>
-            {!navigatorOpen && (
-              <button
-                type="button"
-                onClick={openNavigator}
-                onKeyDown={(event) => event.stopPropagation()}
-                aria-expanded={false}
-                aria-controls="question-navigator-panel"
-                aria-label={`開啟題號列表，已答 ${answeredCount} / ${total} 題，答對 ${correctCount} 題`}
-                className="inline-flex min-h-9 items-center gap-2 rounded-full bg-accent-soft px-3 text-sm font-medium text-accent transition-colors hover:bg-accent-soft/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-              >
-                <ListChecks className="h-4 w-4" aria-hidden="true" />
-                <span>題號</span>
-                <span className="font-mono text-xs font-normal text-accent/80">
-                  {answeredCount}/{total}
-                </span>
-              </button>
-            )}
-            <Button
-              variant="ghost"
-              onClick={handleNextQuestion}
-              disabled={index >= total - 1}
-              className="min-h-9 rounded-full px-3 text-muted hover:bg-paper hover:text-ink"
-            >
-              後一題
-              <ChevronRight className="h-4 w-4" aria-hidden="true" />
-            </Button>
-          </div>
-        </div>
-        <QuestionCard
-          question={question}
-          selected={selected}
-          submitted={submitted}
-          editing={editing}
-          marked={marked}
-          submitting={submitMutation.isPending}
-          correct={submitted ? currentAnswer?.correct : undefined}
-          correctAnswers={currentAnswer?.correctAnswers}
-          explanation={currentAnswer?.explanation}
-          isLast={remaining === 0}
-          onToggleOption={toggleOption}
-          onToggleMark={handleToggleMark}
-          onSubmit={() => void handleSubmit()}
-          onEdit={handleEdit}
-          onCancelEdit={handleCancelEdit}
-          onNext={handleNext}
+        <DesktopQuestionToolbar
+          index={index}
+          total={total}
+          navigatorOpen={navigatorOpen}
+          onPrevious={handlePreviousQuestion}
+          onNext={handleNextQuestion}
+          onToggleNavigator={navigatorOpen ? closeNavigator : openNavigator}
         />
+        <div ref={questionAnchorRef} className="scroll-mt-24 lg:scroll-mt-20">
+          <QuestionCard
+            question={question}
+            selected={selected}
+            submitted={submitted}
+            editing={editing}
+            marked={marked}
+            submitting={submitMutation.isPending}
+            correct={submitted ? currentAnswer?.correct : undefined}
+            correctAnswers={currentAnswer?.correctAnswers}
+            explanation={currentAnswer?.explanation}
+            isLast={remaining === 0}
+            onToggleOption={toggleOption}
+            onToggleMark={handleToggleMark}
+            onSubmit={() => void handleSubmit()}
+            onEdit={handleEdit}
+            onCancelEdit={handleCancelEdit}
+            onNext={handleNext}
+          />
+        </div>
       </div>
 
       {submitError && (
@@ -661,6 +643,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
       {navigatorOpen && (
         <div
           id="question-navigator-panel"
+          data-question-navigator
           className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 lg:bottom-6 lg:left-[calc(50%+7.5rem)] lg:right-auto lg:w-[calc(100vw-19rem)] lg:max-w-3xl lg:-translate-x-1/2"
         >
           <div className="animate-navigator-rise">

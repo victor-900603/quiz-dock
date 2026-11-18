@@ -162,9 +162,41 @@ describe('PracticePage', () => {
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' })
   })
 
+  it('aligns the question card when moving to another question on desktop', async () => {
+    const user = userEvent.setup()
+    const scrollIntoView = vi.fn()
+    HTMLElement.prototype.scrollIntoView = scrollIntoView
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('min-width: 1024px'),
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }))
+
+    renderPractice()
+    scrollIntoView.mockClear()
+
+    await user.hover(screen.getByRole('button', { name: /練習工具列/ }))
+    await user.click(screen.getByRole('button', { name: '後一題' }))
+
+    expect(screen.getByText('題目二')).toBeInTheDocument()
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: 'smooth',
+      block: 'start',
+    })
+
+    delete (HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView
+    vi.unstubAllGlobals()
+  })
+
   it('moves between questions with the desktop controls', async () => {
     const user = userEvent.setup()
     renderPractice()
+    await user.hover(screen.getByRole('button', { name: /練習工具列/ }))
 
     expect(screen.getByRole('button', { name: '前一題' })).toBeDisabled()
     expect(screen.getByRole('button', { name: '後一題' })).toBeEnabled()

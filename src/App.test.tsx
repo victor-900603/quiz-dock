@@ -246,18 +246,18 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: '確認答案' }))
     expect(await screen.findByText('答對了')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /開啟題號列表/ }))
+    await user.click(screen.getByRole('button', { name: /展開題號列表/ }))
     await user.click(screen.getByRole('button', { name: '第 4 題，未作答' }))
     expect(
       await screen.findByRole('heading', { name: '下列哪一項屬於生產者？' }),
     ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '關閉題號列表' })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /開啟題號列表/ }))
+    await user.click(screen.getByRole('button', { name: /展開題號列表/ }))
     await user.click(screen.getByRole('button', { name: '第 1 題，答對，已標記' }))
     expect(await screen.findByText('答對了')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /開啟題號列表/ }))
+    await user.click(screen.getByRole('button', { name: /展開題號列表/ }))
     await user.click(screen.getByRole('button', { name: '隱藏狀態' }))
     expect(screen.getByRole('button', { name: '第 1 題，已標記' })).toHaveAttribute(
       'aria-current',
@@ -265,7 +265,7 @@ describe('App', () => {
     )
 
     await user.keyboard('{Escape}')
-    expect(screen.getByRole('button', { name: /開啟題號列表/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /展開題號列表/ })).toBeInTheDocument()
   })
 
   it('uses the practice header and bottom toolbar for question navigation', async () => {
@@ -321,13 +321,13 @@ describe('App', () => {
     expect(await screen.findByRole('heading', { name: '生物學基礎' })).toBeInTheDocument()
     await startPractice(user)
     expect(await screen.findByText('第 1 / 20 題')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /開啟題號列表/ }))
+    fireEvent.click(screen.getByRole('button', { name: /展開題號列表/ }))
     expect(screen.getByRole('button', { name: '關閉題號列表' })).toBeInTheDocument()
 
     fireEvent.keyDown(window, { key: '2' })
 
     expect(screen.queryByRole('button', { name: '關閉題號列表' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /開啟題號列表/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /展開題號列表/ })).toBeInTheDocument()
   })
 
   it('supports random mode and multi-answer questions', async () => {
