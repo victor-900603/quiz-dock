@@ -42,6 +42,11 @@
 @layer base {
   :root {
     --reading-scale: 1;
+    --sidebar-width: 15rem;
+  }
+
+  html[data-sidebar="collapsed"] {
+    --sidebar-width: 4.5rem;
   }
 
   html[data-theme="dark"] {

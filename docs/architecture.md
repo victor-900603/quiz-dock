@@ -37,7 +37,7 @@ src/main.tsx
               └─ UpdatePrompt
 ```
 
-`AppShell` 與 `AuthLayout` 會渲染 `OfflineNotice`，離線時在內容頂端顯示提示。
+`AppShell` 與 `AuthLayout` 會渲染 `OfflineNotice`，離線時在內容頂端顯示提示。桌機側邊欄可收合為圖示欄，狀態以 `localStorage`（`quizdock.sidebar`）保存在本機，並透過 `data-sidebar` 切換 `--sidebar-width`；主內容留白與練習頁浮動題號面板都依此變數對齊。
 
 ### `src/features`
 
@@ -65,6 +65,8 @@ src/main.tsx
 `settings/theme.ts` 以 `localStorage`（`quizdock.theme`）保存淺色、深色或跟隨系統，預設跟隨系統；`main.tsx` 啟動時套用 `data-theme`、`color-scheme` 與 `theme-color`，並以 `useSyncExternalStore` 提供訂閱。深色主題只覆寫 CSS 變數，不寫入 Supabase。
 
 `settings/ThemeControl.tsx` 提供共用的 `ThemeOptions`、`ThemeDialog` 與 `ThemeButton`，設定頁外觀卡與練習頁標頭（手機頁首與桌機標題列）都使用同一組主題選項；練習頁可直接開啟主題對話框切換，無須前往設定頁。
+
+`settings/sidebar.ts` 以 `localStorage`（`quizdock.sidebar`）保存桌機側邊欄的展開或收合，預設展開；`main.tsx` 啟動時套用 `data-sidebar`，並以 `useSyncExternalStore` 提供訂閱。
 
 ### `src/lib`
 

@@ -692,7 +692,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
         <div
           id="question-navigator-panel"
           data-question-navigator
-          className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 lg:bottom-6 lg:left-[calc(50%+7.5rem)] lg:right-auto lg:w-[calc(100vw-19rem)] lg:max-w-3xl lg:-translate-x-1/2"
+          className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 lg:bottom-6 lg:left-[calc(50%_+_var(--sidebar-width)/2)] lg:right-auto lg:w-[calc(100vw_-_var(--sidebar-width)_-_4rem)] lg:max-w-3xl lg:-translate-x-1/2 lg:transition-[left,width] lg:duration-150 lg:ease-out"
         >
           <div className="animate-navigator-rise">
             <QuestionNavigator

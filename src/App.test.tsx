@@ -303,6 +303,7 @@ describe('App', () => {
     const panel = document.getElementById('question-navigator-panel')
     expect(panel).toHaveClass('inset-x-0')
     expect(panel).not.toHaveClass('px-4')
+    expect(panel?.className).toContain('var(--sidebar-width)')
 
     await user.click(screen.getByRole('button', { name: '第 4 題，未作答' }))
     expect(

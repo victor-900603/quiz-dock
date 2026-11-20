@@ -1,7 +1,17 @@
-import { BarChart3, BookOpen, Library, Settings, Star, type LucideIcon } from 'lucide-react'
+import {
+  BarChart3,
+  BookOpen,
+  Library,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings,
+  Star,
+  type LucideIcon,
+} from 'lucide-react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { cn } from '../lib/cn'
 import { useAuth } from '../features/auth/AuthContext'
+import { toggleSidebar, useSidebarState } from '../features/settings/sidebar'
 import { OfflineNotice } from '../pwa/OfflineNotice'
 
 type NavItem = {
@@ -24,23 +34,70 @@ function pageTitle(pathname: string): string {
   return navItems.find((item) => item.to === pathname)?.label ?? 'QuizDock'
 }
 
-function SideNav() {
-  const { user } = useAuth()
+type SidebarToggleProps = {
+  collapsed: boolean
+}
+
+function SidebarToggle({ collapsed }: SidebarToggleProps) {
+  const Icon = collapsed ? PanelLeftOpen : PanelLeftClose
+  const label = collapsed ? '展開側邊欄' : '收合側邊欄'
 
   return (
-    <aside className="fixed inset-y-0 left-0 hidden w-60 flex-col border-r border-line bg-surface px-5 py-8 lg:flex">
-      <Link
-        to="/"
-        className="flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+    <button
+      type="button"
+      onClick={toggleSidebar}
+      aria-label={label}
+      aria-expanded={!collapsed}
+      aria-controls="app-sidebar"
+      title={label}
+      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-paper hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+    >
+      <Icon className="h-4 w-4" aria-hidden="true" />
+    </button>
+  )
+}
+
+function SideNav() {
+  const { user } = useAuth()
+  const sidebarState = useSidebarState()
+  const collapsed = sidebarState === 'collapsed'
+  const email = user?.email ?? '未登入'
+  const initial = email.slice(0, 1).toUpperCase()
+
+  return (
+    <aside
+      id="app-sidebar"
+      className={cn(
+        'fixed inset-y-0 left-0 hidden flex-col border-r border-line bg-surface py-8 transition-[width] duration-150 ease-out lg:flex lg:w-[var(--sidebar-width)]',
+        collapsed ? 'px-3' : 'px-5',
+      )}
+    >
+      <div
+        className={cn(
+          'flex gap-2',
+          collapsed ? 'flex-col items-center' : 'items-center justify-between',
+        )}
       >
-        <span className="flex h-10 w-10 items-center justify-center rounded-full border border-line bg-paper text-accent">
-          <BookOpen className="h-5 w-5" aria-hidden="true" />
-        </span>
-        <span>
-          <span className="block font-serif text-xl leading-none text-ink">QuizDock</span>
-          <span className="mt-1 block text-[10px] uppercase tracking-[0.18em] text-muted">練習題庫</span>
-        </span>
-      </Link>
+        <Link
+          to="/"
+          title={collapsed ? 'QuizDock' : undefined}
+          className={cn(
+            'flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+            collapsed && 'justify-center',
+          )}
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line bg-paper text-accent">
+            <BookOpen className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <span className={cn(collapsed && 'sr-only')}>
+            <span className="block font-serif text-xl leading-none text-ink">QuizDock</span>
+            <span className="mt-1 block text-[10px] uppercase tracking-[0.18em] text-muted">
+              練習題庫
+            </span>
+          </span>
+        </Link>
+        <SidebarToggle collapsed={collapsed} />
+      </div>
 
       <nav className="mt-10 space-y-1" aria-label="主要導覽">
         {navItems.map((item) => {
@@ -50,25 +107,47 @@ function SideNav() {
               key={item.to}
               to={item.to}
               end={item.to === '/'}
+              title={collapsed ? item.label : undefined}
               className={({ isActive }) =>
                 cn(
-                  'flex min-h-11 items-center gap-3 rounded-lg border-l-2 px-3 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                  'flex min-h-11 items-center rounded-lg border-l-2 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                  collapsed ? 'justify-center px-0' : 'gap-3 px-3',
                   isActive
                     ? 'border-accent bg-accent-soft/60 font-medium text-accent'
                     : 'border-transparent text-muted hover:bg-paper hover:text-ink',
                 )
               }
             >
-              <Icon className="h-4 w-4" aria-hidden="true" />
-              {item.label}
+              <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className={cn(collapsed && 'sr-only')}>{item.label}</span>
             </NavLink>
           )
         })}
       </nav>
 
-      <div className="mt-auto border-t border-line pt-5">
-        <p className="text-[10px] uppercase tracking-[0.14em] text-muted">登入中</p>
-        <p className="mt-1 truncate text-sm text-ink">{user?.email ?? '未登入'}</p>
+      <div
+        className={cn(
+          'mt-auto border-t border-line pt-5',
+          collapsed && 'flex flex-col items-center',
+        )}
+      >
+        {collapsed ? (
+          <>
+            <span
+              aria-hidden="true"
+              title={email}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-paper text-sm font-medium text-ink"
+            >
+              {initial}
+            </span>
+            <span className="sr-only">登入中：{email}</span>
+          </>
+        ) : (
+          <>
+            <p className="text-[10px] uppercase tracking-[0.14em] text-muted">登入中</p>
+            <p className="mt-1 truncate text-sm text-ink">{email}</p>
+          </>
+        )}
       </div>
     </aside>
   )
@@ -126,7 +205,7 @@ export function AppShell() {
 
       <SideNav />
 
-      <div className="lg:pl-60">
+      <div className="lg:pl-[var(--sidebar-width)] lg:transition-[padding] lg:duration-150 lg:ease-out">
         <OfflineNotice />
 
         {!isPractice && (
