@@ -23,6 +23,7 @@ import { ThemeButton, ThemeDialog } from '../settings/ThemeControl'
 import { isMultiAnswer } from './evaluate'
 import { DesktopQuestionToolbar } from './DesktopQuestionToolbar'
 import { PracticeHeader } from './PracticeHeader'
+import { PracticeHelpButton, PracticeHelpDialog } from './PracticeHelp'
 import { usePracticeSessionQuery, useSubmitAnswerMutation } from './queries'
 import {
   findNextUnanswered,
@@ -180,6 +181,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
   const [navigatorOpen, setNavigatorOpen] = useState(false)
   const [readingScaleOpen, setReadingScaleOpen] = useState(false)
   const [themeOpen, setThemeOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editSelected, setEditSelected] = useState<string[]>([])
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -479,7 +481,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
         return
       }
 
-      if (readingScaleOpen) return
+      if (readingScaleOpen || themeOpen || helpOpen) return
 
       if (!navigatorOpen && !editing && event.key === 'ArrowLeft') {
         event.preventDefault()
@@ -547,6 +549,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
         correct={correctCount}
         onOpenReadingScale={() => setReadingScaleOpen(true)}
         onOpenTheme={() => setThemeOpen(true)}
+        onOpenHelp={() => setHelpOpen(true)}
       />
 
       <div className="mb-6 hidden items-center justify-between gap-3 lg:flex">
@@ -579,6 +582,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
             <PracticeLayoutButton />
             <ThemeButton onClick={() => setThemeOpen(true)} />
             <ReadingScaleButton onClick={() => setReadingScaleOpen(true)} />
+            <PracticeHelpButton onClick={() => setHelpOpen(true)} />
           </div>
         </div>
         <div className="lg:mt-3">
@@ -639,10 +643,6 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
           {updateNotice}
         </p>
       )}
-
-      <p className="mt-4 hidden text-center text-xs text-muted lg:block">
-        可用上方按鈕或鍵盤左右方向鍵換題，也能從題號列表跳到任一題；離開後進度會保留。
-      </p>
 
       <nav
         aria-label="答題工具列"
@@ -727,6 +727,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
         onClose={() => setReadingScaleOpen(false)}
       />
       <ThemeDialog open={themeOpen} onClose={() => setThemeOpen(false)} />
+      <PracticeHelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
     </>
   )
 }

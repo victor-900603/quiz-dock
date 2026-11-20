@@ -129,8 +129,7 @@ export function QuestionCard({
         </div>
       </div>
 
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end lg:justify-between">
-        <p className="hidden text-xs text-muted lg:block">鍵盤 1-9 選擇，Enter 送出</p>
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
         {editing ? (
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button variant="secondary" onClick={onCancelEdit} disabled={submitting}>

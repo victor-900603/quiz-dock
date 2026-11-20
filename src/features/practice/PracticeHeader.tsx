@@ -4,6 +4,7 @@ import { ProgressBar } from '../../components/ProgressBar'
 import type { PracticeMode } from '../../types/quiz'
 import { ReadingScaleButton } from '../settings/ReadingScaleControl'
 import { ThemeButton } from '../settings/ThemeControl'
+import { PracticeHelpButton } from './PracticeHelp'
 
 type PracticeHeaderProps = {
   setId: string
@@ -15,6 +16,7 @@ type PracticeHeaderProps = {
   correct: number
   onOpenReadingScale: () => void
   onOpenTheme: () => void
+  onOpenHelp: () => void
 }
 
 export function PracticeHeader({
@@ -27,6 +29,7 @@ export function PracticeHeader({
   correct,
   onOpenReadingScale,
   onOpenTheme,
+  onOpenHelp,
 }: PracticeHeaderProps) {
   const modeLabel = mode === 'random' ? '隨機' : '依序'
 
@@ -59,6 +62,7 @@ export function PracticeHeader({
         <div className="flex items-center gap-1.5">
           <ThemeButton onClick={onOpenTheme} className="ring-offset-paper" />
           <ReadingScaleButton onClick={onOpenReadingScale} className="ring-offset-paper" />
+          <PracticeHelpButton onClick={onOpenHelp} className="ring-offset-paper" />
         </div>
       </div>
       <div className="px-4 pb-2 sm:px-6">

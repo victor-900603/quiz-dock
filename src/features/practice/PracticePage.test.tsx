@@ -250,6 +250,31 @@ describe('PracticePage', () => {
     expect(localStorage.getItem(themeStorageKey)).toBe('dark')
   })
 
+  it('opens the practice help dialog and pauses keyboard shortcuts', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+
+    expect(screen.queryByText(/可用上方按鈕或鍵盤左右方向鍵換題/)).not.toBeInTheDocument()
+
+    await user.click(screen.getAllByRole('button', { name: '練習說明' })[0])
+
+    expect(screen.getByRole('dialog', { name: '練習說明' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '作答' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '換題與進度' })).toBeInTheDocument()
+
+    await user.keyboard('1')
+    await user.keyboard('{ArrowRight}')
+    await user.keyboard('{Enter}')
+
+    expect(screen.getByText('題目一')).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /甲/ })).toHaveAttribute('aria-checked', 'false')
+    expect(mocks.submit.mutateAsync).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: '知道了' }))
+
+    expect(screen.queryByRole('dialog', { name: '練習說明' })).not.toBeInTheDocument()
+  })
+
   it('switches the desktop question layout and remembers it', async () => {
     const user = userEvent.setup()
     renderPractice()

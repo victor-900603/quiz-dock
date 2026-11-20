@@ -17,6 +17,7 @@ function renderHeader(overrides: Partial<HeaderProps> = {}) {
     correct: 3,
     onOpenReadingScale: vi.fn(),
     onOpenTheme: vi.fn(),
+    onOpenHelp: vi.fn(),
     ...overrides,
   }
 
@@ -61,5 +62,14 @@ describe('PracticeHeader', () => {
     await user.click(screen.getByRole('button', { name: '調整字級' }))
 
     expect(props.onOpenReadingScale).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens the practice help dialog', async () => {
+    const user = userEvent.setup()
+    const props = renderHeader()
+
+    await user.click(screen.getByRole('button', { name: '練習說明' }))
+
+    expect(props.onOpenHelp).toHaveBeenCalledTimes(1)
   })
 })
