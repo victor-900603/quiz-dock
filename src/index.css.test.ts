@@ -15,3 +15,19 @@ describe('global cursor styles', () => {
     expect(css).toContain('cursor: not-allowed')
   })
 })
+
+describe('mobile viewport styles', () => {
+  it('blocks pinch zoom while keeping panning available', () => {
+    expect(css).toContain('touch-action: pan-x pan-y')
+  })
+
+  it('uses a shared sidebar width variable', () => {
+    expect(css).toContain('--sidebar-width: 15rem')
+    expect(css).toContain('--sidebar-width: 4.5rem')
+  })
+
+  it('keeps form fields at 16px on mobile to avoid iOS focus zoom', () => {
+    expect(css).toContain('@media (max-width: 1023px)')
+    expect(css).toContain('font-size: 16px')
+  })
+})

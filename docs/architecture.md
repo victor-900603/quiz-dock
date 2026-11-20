@@ -250,7 +250,7 @@ Workbox 使用 `generateSW` 模式：
 - `installPrompt.ts` 攔截 `beforeinstallprompt`，保存瀏覽器提供的安裝事件；`appinstalled` 後標記為已安裝。
 - `SettingsPage` 的安裝卡片依序判斷：已安裝、可安裝、iOS、一般手動安裝。
 - iOS 顯示 Safari 分享選單的「加入主畫面」說明。
-- `index.html` 設定 `viewport-fit=cover` 與 Apple PWA meta；`index.css` 以 `env(safe-area-inset-top)` 保留瀏海安全區域。底部導覽與更新提示另外處理 `safe-area-inset-bottom`。
+- `index.html` 設定 `viewport-fit=cover`、`maximum-scale=1` 與 `user-scalable=no`，搭配 `index.css` 的 `touch-action: pan-x pan-y` 關閉行動版手勢縮放並保留捲動；`pwa/zoomLock.ts` 攔截 WebKit 的 gesture 事件與多指 `touchmove`，補強 iOS Safari。行動版 `input`、`select`、`textarea` 維持 16px，避免 iOS 聚焦時自動放大。`index.css` 另以 `env(safe-area-inset-top)` 保留瀏海安全區域，底部導覽與更新提示處理 `safe-area-inset-bottom`。
 
 ## 測試策略
 
@@ -262,6 +262,7 @@ Workbox 使用 `generateSW` 模式：
 - 複製題目：驗證複製文字包含題號、主題、題幹與選項，並處理剪貼簿失敗與提示重設。
 - 帳號偏好：驗證格式錯誤回落預設、設定頁開關的樂觀更新與失敗回滾，以及答錯自動標記只在設定開啟、答錯且尚未標記時觸發。
 - 主題：驗證預設跟隨系統、無效儲存值回落、淺色與深色的套用結果、系統偏好變更時的通知，以及重設後的清理。
+- 側邊欄與縮放：驗證側邊欄預設展開、收合狀態持久化與無效值回落、收合後導覽名稱仍可存取，以及手勢與多指觸控事件被攔截、cleanup 後解除。
 - RLS smoke test：`supabase/tests/rls.sql` 手動對遠端資料庫執行，驗證跨帳號隔離。
 - 覆蓋率門檻：statements、branches、functions、lines 皆為 80%。
 

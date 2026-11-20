@@ -46,6 +46,7 @@ VITE_SUPABASE_ANON_KEY=
 - 離線範圍僅限 App 外殼：HTML、JS、CSS、字型與圖片會預先快取。Supabase 請求不快取，離線時仍需網路才能讀取或儲存資料。
 - 偵測到新版本時，畫面下方會顯示更新提示；選擇「重新載入」後會顯示更新進度，完成後自動重新載入，失敗時可重試。選擇「稍後」可繼續使用目前版本。註冊後每小時檢查一次更新。
 - 設定頁的「安裝」卡片會依瀏覽器狀態顯示安裝按鈕、iOS 加入主畫面說明或一般安裝說明。
+- 行動版關閉手勢縮放與雙擊縮放，並將輸入框維持 16px，避免 iOS 聚焦時自動放大。
 - 圖示來源為 `public/favicon.svg`，由 `pwa-assets.config.ts` 產生 64、192、512、maskable 與 Apple Touch Icon。修改圖示後執行 `npm run pwa:assets`。
 
 Service Worker 只在 production build 產生。本機驗證請執行 `npm run build` 後再以 `npm run preview` 開啟。

@@ -10,6 +10,7 @@ import { initTheme } from './features/settings/theme'
 import { getBasename } from './lib/router'
 import { initInstallPrompt } from './pwa/installPrompt'
 import { setNeedRefresh } from './pwa/pwaStore'
+import { initZoomLock } from './pwa/zoomLock'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -23,6 +24,7 @@ initInstallPrompt()
 initTheme()
 initReadingSize()
 initSidebar()
+initZoomLock()
 
 const updateSW = registerSW({
   onNeedRefresh() {
