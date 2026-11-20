@@ -5,6 +5,10 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PracticeSessionDetail } from '../../types/quiz'
 import { resetReadingSize } from '../settings/readingScale'
+import {
+  practiceLayoutStorageKey,
+  resetPracticeLayout,
+} from '../settings/practiceLayout'
 import { resetTheme, themeStorageKey } from '../settings/theme'
 import { PracticePage } from './PracticePage'
 
@@ -136,12 +140,14 @@ describe('PracticePage', () => {
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     resetReadingSize()
     resetTheme()
+    resetPracticeLayout()
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
     resetReadingSize()
     resetTheme()
+    resetPracticeLayout()
   })
 
   it('renders the current question and the practice header', () => {
@@ -242,6 +248,36 @@ describe('PracticePage', () => {
 
     expect(document.documentElement.dataset.theme).toBe('dark')
     expect(localStorage.getItem(themeStorageKey)).toBe('dark')
+  })
+
+  it('switches the desktop question layout and remembers it', async () => {
+    const user = userEvent.setup()
+    renderPractice()
+
+    const card = document.querySelector('[data-question-layout]')
+    expect(card).toHaveAttribute('data-question-layout', 'stacked')
+    expect(card).not.toHaveClass('lg:grid')
+
+    await user.click(screen.getByRole('button', { name: '左右版面' }))
+
+    expect(card).toHaveAttribute('data-question-layout', 'split')
+    expect(card).toHaveClass('lg:grid', 'lg:grid-cols-2')
+    expect(localStorage.getItem(practiceLayoutStorageKey)).toBe('split')
+  })
+
+  it('restores the split layout from local storage', () => {
+    window.localStorage.setItem(practiceLayoutStorageKey, 'split')
+
+    renderPractice()
+
+    expect(document.querySelector('[data-question-layout]')).toHaveAttribute(
+      'data-question-layout',
+      'split',
+    )
+    expect(screen.getByRole('button', { name: '左右版面' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
   })
 
   it('moves between questions with the desktop controls', async () => {

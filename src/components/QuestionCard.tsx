@@ -7,6 +7,7 @@ import { OptionButton, type OptionStatus } from './OptionButton'
 import { QuestionCopyActions } from './QuestionCopyActions'
 import { cn } from '../lib/cn'
 import { evaluateAnswer, isMultiAnswer } from '../features/practice/evaluate'
+import type { PracticeLayout } from '../features/settings/practiceLayout'
 import { formatQuestionNumber } from '../lib/questionText'
 import type { Question } from '../types/quiz'
 
@@ -16,6 +17,7 @@ type QuestionCardProps = {
   submitted: boolean
   editing: boolean
   marked: boolean
+  layout?: PracticeLayout
   showMark?: boolean
   submitting?: boolean
   correct?: boolean
@@ -36,6 +38,7 @@ export function QuestionCard({
   submitted,
   editing,
   marked,
+  layout = 'stacked',
   showMark = true,
   submitting = false,
   correct,
@@ -78,44 +81,53 @@ export function QuestionCard({
         </div>
       </div>
 
-      <h2 className="reading-prompt mt-4 font-serif text-ink">{question.prompt}</h2>
-      {multi && <p className="mt-2 text-sm text-muted">選出所有正確答案</p>}
-
       <div
-        className="mt-6 space-y-3"
-        role={multi ? 'group' : 'radiogroup'}
-        aria-label="選項"
+        data-question-layout={layout}
+        className={cn(layout === 'split' && 'lg:grid lg:grid-cols-2 lg:items-start lg:gap-8')}
       >
-        {question.options.map((option) => (
-          <OptionButton
-            key={option.key}
-            option={option}
-            selected={selected.includes(option.key)}
-            status={statusFor(option.key)}
-            disabled={submitting || (submitted && !editing)}
-            multi={multi}
-            onClick={() => onToggleOption(option.key)}
-          />
-        ))}
-      </div>
-
-      {submitted && !editing && (
-        <div aria-live="polite" className="mt-5">
-          <p
-            className={cn(
-              'inline-flex items-center gap-2 text-sm font-medium',
-              isCorrect ? 'text-correct' : 'text-wrong',
-            )}
-          >
-            {isCorrect ? <Check className="h-4 w-4" aria-hidden="true" /> : <X className="h-4 w-4" aria-hidden="true" />}
-            {isCorrect ? '答對了' : '答錯了'}
-          </p>
-          <ExplanationPanel
-            correctAnswers={answers}
-            explanation={explanation ?? question.explanation}
-          />
+        <div data-question-column="prompt">
+          <h2 className="reading-prompt mt-4 font-serif text-ink">{question.prompt}</h2>
+          {multi && <p className="mt-2 text-sm text-muted">選出所有正確答案</p>}
         </div>
-      )}
+
+        <div data-question-column="answer">
+          <div
+            className={cn('mt-6 space-y-3', layout === 'split' && 'lg:mt-4')}
+            role={multi ? 'group' : 'radiogroup'}
+            aria-label="選項"
+          >
+            {question.options.map((option) => (
+              <OptionButton
+                key={option.key}
+                option={option}
+                selected={selected.includes(option.key)}
+                status={statusFor(option.key)}
+                disabled={submitting || (submitted && !editing)}
+                multi={multi}
+                onClick={() => onToggleOption(option.key)}
+              />
+            ))}
+          </div>
+
+          {submitted && !editing && (
+            <div aria-live="polite" className="mt-5">
+              <p
+                className={cn(
+                  'inline-flex items-center gap-2 text-sm font-medium',
+                  isCorrect ? 'text-correct' : 'text-wrong',
+                )}
+              >
+                {isCorrect ? <Check className="h-4 w-4" aria-hidden="true" /> : <X className="h-4 w-4" aria-hidden="true" />}
+                {isCorrect ? '答對了' : '答錯了'}
+              </p>
+              <ExplanationPanel
+                correctAnswers={answers}
+                explanation={explanation ?? question.explanation}
+              />
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end lg:justify-between">
         <p className="hidden text-xs text-muted lg:block">鍵盤 1-9 選擇，Enter 送出</p>

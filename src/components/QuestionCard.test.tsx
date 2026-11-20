@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { QuestionCard } from './QuestionCard'
@@ -126,6 +126,33 @@ describe('QuestionCard', () => {
     expect(
       screen.queryByRole('button', { name: '標記題目' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('keeps the prompt and options in one column by default', () => {
+    renderCard()
+
+    const layout = document.querySelector('[data-question-layout]')
+    expect(layout).toHaveAttribute('data-question-layout', 'stacked')
+    expect(layout).not.toHaveClass('lg:grid')
+  })
+
+  it('splits the prompt and options into two columns for the split layout', () => {
+    const { container } = renderCard({ layout: 'split' })
+
+    const layout = container.querySelector('[data-question-layout]')
+    expect(layout).toHaveAttribute('data-question-layout', 'split')
+    expect(layout).toHaveClass('lg:grid', 'lg:grid-cols-2')
+
+    const promptColumn = container.querySelector('[data-question-column="prompt"]')
+    const answerColumn = container.querySelector('[data-question-column="answer"]')
+    expect(promptColumn).not.toBeNull()
+    expect(answerColumn).not.toBeNull()
+    expect(
+      within(promptColumn as HTMLElement).getByText(singleQuestion.prompt),
+    ).toBeInTheDocument()
+    expect(
+      within(answerColumn as HTMLElement).getByRole('radiogroup', { name: '選項' }),
+    ).toBeInTheDocument()
   })
 
   it('uses the server feedback and disables options while submitting', () => {

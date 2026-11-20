@@ -7,6 +7,7 @@ import { Skeleton } from '../../components/Skeleton'
 import { EmptyState } from '../../components/EmptyState'
 import { ProgressBar } from '../../components/ProgressBar'
 import { QuestionCard } from '../../components/QuestionCard'
+import { cn } from '../../lib/cn'
 import {
   QuestionNavigator,
   type QuestionNavigatorFilter,
@@ -16,6 +17,8 @@ import type { PracticeSessionDetail } from '../../types/quiz'
 import { useMarksQuery, useToggleMarkMutation } from '../marks/queries'
 import { usePreferences } from '../settings/queries'
 import { ReadingScaleButton, ReadingScaleDialog } from '../settings/ReadingScaleControl'
+import { PracticeLayoutButton } from '../settings/PracticeLayoutButton'
+import { usePracticeLayout } from '../settings/practiceLayout'
 import { ThemeButton, ThemeDialog } from '../settings/ThemeControl'
 import { isMultiAnswer } from './evaluate'
 import { DesktopQuestionToolbar } from './DesktopQuestionToolbar'
@@ -146,6 +149,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
   const marksQuery = useMarksQuery()
   const toggleMarkMutation = useToggleMarkMutation()
   const { preferences } = usePreferences()
+  const layout = usePracticeLayout()
   const { session, set, questions, attempts } = detail
   const total = questions.length
   const mode = session.mode
@@ -572,6 +576,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
         <div className="hidden flex-wrap items-center justify-between gap-2 lg:flex">
           <h1 className="font-serif text-2xl text-ink">{set.title}</h1>
           <div className="flex items-center gap-2">
+            <PracticeLayoutButton />
             <ThemeButton onClick={() => setThemeOpen(true)} />
             <ReadingScaleButton onClick={() => setReadingScaleOpen(true)} />
           </div>
@@ -597,6 +602,7 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
         <div ref={questionAnchorRef} data-question-anchor>
           <QuestionCard
             question={question}
+            layout={layout}
             selected={selected}
             submitted={submitted}
             editing={editing}
@@ -692,7 +698,11 @@ function PracticeSessionView({ sessionId, detail }: PracticeSessionViewProps) {
         <div
           id="question-navigator-panel"
           data-question-navigator
-          className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 lg:bottom-6 lg:left-[calc(50%_+_var(--sidebar-width)/2)] lg:right-auto lg:w-[calc(100vw_-_var(--sidebar-width)_-_4rem)] lg:max-w-3xl lg:-translate-x-1/2 lg:transition-[left,width] lg:duration-150 lg:ease-out"
+          className={cn(
+            'fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-20 lg:bottom-6 lg:left-[calc(50%_+_var(--sidebar-width)/2)] lg:right-auto lg:w-[calc(100vw_-_var(--sidebar-width)_-_4rem)] lg:-translate-x-1/2 lg:transition-[left,width] lg:duration-150 lg:ease-out',
+            layout === 'split' ? 'lg:max-w-5xl' : 'lg:max-w-3xl',
+          )}
+          data-practice-layout={layout}
         >
           <div className="animate-navigator-rise">
             <QuestionNavigator

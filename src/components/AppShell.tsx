@@ -12,6 +12,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { cn } from '../lib/cn'
 import { useAuth } from '../features/auth/AuthContext'
 import { toggleSidebar, useSidebarState } from '../features/settings/sidebar'
+import { usePracticeLayout } from '../features/settings/practiceLayout'
 import { OfflineNotice } from '../pwa/OfflineNotice'
 
 type NavItem = {
@@ -193,6 +194,7 @@ export function AppShell() {
   const location = useLocation()
   const title = pageTitle(location.pathname)
   const isPractice = location.pathname.startsWith('/practice/')
+  const practiceLayout = usePracticeLayout()
 
   return (
     <div className="min-h-screen bg-paper">
@@ -227,6 +229,7 @@ export function AppShell() {
             isPractice
               ? 'pb-24 pt-20 lg:pb-16 lg:pt-10'
               : 'pb-28 pt-6 lg:pb-16 lg:pt-10',
+            isPractice && practiceLayout === 'split' && 'lg:max-w-5xl',
           )}
         >
           <Outlet />

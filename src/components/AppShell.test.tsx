@@ -8,16 +8,21 @@ import {
   resetSidebar,
   sidebarStorageKey,
 } from '../features/settings/sidebar'
+import {
+  practiceLayoutStorageKey,
+  resetPracticeLayout,
+} from '../features/settings/practiceLayout'
 import { AppShell } from './AppShell'
 
-function renderShell() {
+function renderShell(initialEntry = '/') {
   return render(
     <TestAuthProvider>
-      <MemoryRouter initialEntries={['/']}>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route element={<AppShell />}>
             <Route path="/" element={<p>題庫內容</p>} />
             <Route path="/marks" element={<p>標記內容</p>} />
+            <Route path="/practice/session-1" element={<p>練習內容</p>} />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -29,10 +34,12 @@ describe('AppShell sidebar', () => {
   beforeEach(() => {
     window.localStorage.clear()
     resetSidebar()
+    resetPracticeLayout()
   })
 
   afterEach(() => {
     resetSidebar()
+    resetPracticeLayout()
   })
 
   it('starts expanded and keeps the navigation labels accessible', () => {
@@ -98,5 +105,24 @@ describe('AppShell sidebar', () => {
 
     expect(screen.getByRole('button', { name: '收合側邊欄' })).toBeInTheDocument()
     expect(document.documentElement.dataset.sidebar).toBe('expanded')
+  })
+
+  it('keeps the regular content width for the stacked practice layout', () => {
+    renderShell('/practice/session-1')
+
+    const main = document.getElementById('main-content')
+    expect(main).toHaveClass('max-w-3xl')
+    expect(main).not.toHaveClass('lg:max-w-5xl')
+  })
+
+  it('widens the practice content for the split layout', () => {
+    window.localStorage.setItem(practiceLayoutStorageKey, 'split')
+
+    renderShell('/practice/session-1')
+
+    expect(document.getElementById('main-content')).toHaveClass(
+      'max-w-3xl',
+      'lg:max-w-5xl',
+    )
   })
 })

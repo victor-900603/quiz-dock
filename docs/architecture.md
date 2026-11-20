@@ -37,7 +37,7 @@ src/main.tsx
               └─ UpdatePrompt
 ```
 
-`AppShell` 與 `AuthLayout` 會渲染 `OfflineNotice`，離線時在內容頂端顯示提示。桌機側邊欄可收合為圖示欄，狀態以 `localStorage`（`quizdock.sidebar`）保存在本機，並透過 `data-sidebar` 切換 `--sidebar-width`；主內容留白與練習頁浮動題號面板都依此變數對齊。
+`AppShell` 與 `AuthLayout` 會渲染 `OfflineNotice`，離線時在內容頂端顯示提示。桌機側邊欄可收合為圖示欄，狀態以 `localStorage`（`quizdock.sidebar`）保存在本機，並透過 `data-sidebar` 切換 `--sidebar-width`；主內容留白與練習頁浮動題號面板都依此變數對齊。練習頁切換為左右版面時，桌機內容最大寬度由 `max-w-3xl` 放寬為 `max-w-5xl`，上下版面維持原寬度。
 
 ### `src/features`
 
@@ -67,6 +67,8 @@ src/main.tsx
 `settings/ThemeControl.tsx` 提供共用的 `ThemeOptions`、`ThemeDialog` 與 `ThemeButton`，設定頁外觀卡與練習頁標頭（手機頁首與桌機標題列）都使用同一組主題選項；練習頁可直接開啟主題對話框切換，無須前往設定頁。
 
 `settings/sidebar.ts` 以 `localStorage`（`quizdock.sidebar`）保存桌機側邊欄的展開或收合，預設展開；`main.tsx` 啟動時套用 `data-sidebar`，並以 `useSyncExternalStore` 提供訂閱。
+
+`settings/practiceLayout.ts` 以 `localStorage`（`quizdock.practice-layout`）保存桌機練習頁的上下或左右版面，預設上下；`PracticeLayoutButton` 於桌面標題列切換，`QuestionCard` 依版面套用單欄或桌面兩欄配置，手機與平板固定單欄。
 
 ### `src/lib`
 
@@ -263,6 +265,7 @@ Workbox 使用 `generateSW` 模式：
 - 帳號偏好：驗證格式錯誤回落預設、設定頁開關的樂觀更新與失敗回滾，以及答錯自動標記只在設定開啟、答錯且尚未標記時觸發。
 - 主題：驗證預設跟隨系統、無效儲存值回落、淺色與深色的套用結果、系統偏好變更時的通知，以及重設後的清理。
 - 側邊欄與縮放：驗證側邊欄預設展開、收合狀態持久化與無效值回落、收合後導覽名稱仍可存取，以及手勢與多指觸控事件被攔截、cleanup 後解除。
+- 練習版面：驗證預設上下版面、左右版面持久化與無效值回落、切換按鈕狀態、題幹與選項的兩欄配置，以及桌機內容寬度只在左右模式放寬。
 - RLS smoke test：`supabase/tests/rls.sql` 手動對遠端資料庫執行，驗證跨帳號隔離。
 - 覆蓋率門檻：statements、branches、functions、lines 皆為 80%。
 
